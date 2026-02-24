@@ -1,0 +1,101 @@
+version: '3.9'
+name: affine-selfhost
+
+services:
+  affine:
+    # This instructs Zeabur to build your modified source code locally
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: affine_server
+    ports:
+      - '${PORT:-3010}:3010'
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      affine_migration:
+        condition: service_completed_successfully
+    volumes:
+      # These volumes ensure your 'fs' storage survives across Zeabur container restarts
+      - affine_storage:/app/.affine/storage
+      - affine_config:/app/.affine/config
+    environment:
+      - REDIS_SERVER_HOST=redis
+      - DATABASE_URL=postgresql://${DB_USERNAME:-affine}:${DB_PASSWORD:-affine}@postgres:5432/${DB_DATABASE:-affine}
+      - AFFINE_INDEXER_ENABLED=false
+      - DEPLOYMENT_TYPE=selfhosted
+      - UPLOAD_LOCATION=/app/.affine/storage
+      - CONFIG_LOCATION=/app/.affine/config
+    restart: unless-stopped
+
+  affine_migration:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: affine_migration_job
+    volumes:
+      - affine_storage:/app/.affine/storage
+      - affine_config:/app/.affine/config
+    command: ['sh', '-c', 'node ./scripts/self-host-predeploy.js']
+    environment:
+      - REDIS_SERVER_HOST=redis
+      - DATABASE_URL=postgresql://${DB_USERNAME:-affine}:${DB_PASSWORD:-affine}@postgres:5432/${DB_DATABASE:-affine}
+      - AFFINE_INDEXER_ENABLED=false
+      - DEPLOYMENT_TYPE=selfhosted
+      - UPLOAD_LOCATION=/app/.affine/storage
+      - CONFIG_LOCATION=/app/.affine/config
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:alpine
+    container_name: affine_redis
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', '--raw', 'incr', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: affine_postgres
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-affine}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-affine}
+      POSTGRES_DB: ${DB_DATABASE:-affine}
+      POSTGRES_INITDB_ARGS: '--data-checksums'
+      POSTGRES_HOST_AUTH_METHOD: trust
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'pg_isready',
+          '-U',
+          '${DB_USERNAME:-affine}',
+          '-d',
+          '${DB_DATABASE:-affine}',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  affine_storage:
+  affine_config:
+  postgres_data:
+  redis_data:
