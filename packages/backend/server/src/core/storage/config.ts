@@ -28,10 +28,16 @@ defineModuleConfig('storages', {
   'avatar.storage': {
     desc: 'The config of storage for user avatars.',
     default: {
-      provider: 'fs',
+      provider: 'aws-s3',
       bucket: 'avatars',
       config: {
-        path: '~/.affine/storage',
+        endpoint: process.env.MINIO_ENDPOINT || 'http://localhost:9000',
+        region: process.env.MINIO_REGION || 'us-east-1',
+        credentials: {
+          accessKeyId: process.env.MINIO_ACCESS_KEY || 'minioadmin',
+          secretAccessKey: process.env.MINIO_SECRET_KEY || 'minioadmin',
+        },
+        forcePathStyle: true,
       },
     },
     schema: StorageJSONSchema,
@@ -39,10 +45,16 @@ defineModuleConfig('storages', {
   'blob.storage': {
     desc: 'The config of storage for all uploaded blobs(images, videos, etc.).',
     default: {
-      provider: 'fs',
+      provider: 'aws-s3',
       bucket: 'blobs',
       config: {
-        path: '~/.affine/storage',
+        endpoint: process.env.MINIO_ENDPOINT || 'http://localhost:9000',
+        region: process.env.MINIO_REGION || 'us-east-1',
+        credentials: {
+          accessKeyId: process.env.MINIO_ACCESS_KEY || 'minioadmin',
+          secretAccessKey: process.env.MINIO_SECRET_KEY || 'minioadmin',
+        },
+        forcePathStyle: true,
       },
     },
     schema: StorageJSONSchema,
