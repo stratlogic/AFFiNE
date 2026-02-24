@@ -18,10 +18,18 @@ RUN yarn config set --json supportedArchitectures.libc '["glibc"]'
 # Install dependencies
 RUN yarn install
 
+# Enforce stable build type so web/admin bundles generate the 'dist' correctly
+ENV BUILD_TYPE=stable
+
 # Build everything
 RUN yarn affine @affine/web build
 RUN yarn affine @affine/admin build
 RUN yarn workspace @affine/server-native build
+
+# Rename the compiled Rust binary to exactly what the backend expects
+RUN cp ./packages/backend/native/server-native.node ./packages/backend/native/server-native.x64.node || true
+RUN cp ./packages/backend/native/server-native.node ./packages/backend/native/server-native.arm64.node || true
+
 RUN yarn workspace @affine/server build
 RUN yarn workspace @affine/server prisma generate
 
