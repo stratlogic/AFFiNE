@@ -1771,13 +1771,6 @@ type NotificationWorkspaceType {
   name: String!
 }
 
-enum OAuthProviderType {
-  Apple
-  GitHub
-  Google
-  OIDC
-}
-
 type PageInfo {
   endCursor: String
   hasNextPage: Boolean!
@@ -2195,7 +2188,6 @@ type ServerConfigType {
 
   """server identical name could be shown as badge on user interface"""
   name: String!
-  oauthProviders: [OAuthProviderType!]!
 
   """server type"""
   type: ServerDeploymentType!

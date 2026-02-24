@@ -57,7 +57,6 @@ import { CaptchaModule } from './plugins/captcha';
 import { CopilotModule } from './plugins/copilot';
 import { GCloudModule } from './plugins/gcloud';
 import { IndexerModule } from './plugins/indexer';
-import { OAuthModule } from './plugins/oauth';
 import { PaymentModule } from './plugins/payment';
 import { WorkerModule } from './plugins/worker';
 
@@ -194,7 +193,6 @@ export function buildAppModule(env: Env) {
       PaymentModule,
       CopilotModule,
       CaptchaModule,
-      OAuthModule,
       CalendarModule,
       TelemetryModule,
       CommentModule,
