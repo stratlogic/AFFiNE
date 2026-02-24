@@ -1241,81 +1241,6 @@ export const PackageList = [
     ],
   },
   {
-    location: 'packages/frontend/apps/android',
-    name: '@affine/android',
-    workspaceDependencies: [
-      'packages/frontend/component',
-      'packages/frontend/core',
-      'packages/common/env',
-      'packages/frontend/i18n',
-      'packages/frontend/apps/mobile-shared',
-      'packages/common/nbstore',
-      'packages/frontend/track',
-      'blocksuite/affine/all',
-      'packages/common/infra',
-    ],
-  },
-  {
-    location: 'packages/frontend/apps/electron',
-    name: '@affine/electron',
-    workspaceDependencies: [
-      'tools/utils',
-      'packages/frontend/i18n',
-      'packages/frontend/native',
-      'packages/common/nbstore',
-      'packages/common/infra',
-    ],
-  },
-  {
-    location: 'packages/frontend/apps/electron-renderer',
-    name: '@affine/electron-renderer',
-    workspaceDependencies: [
-      'packages/frontend/component',
-      'packages/frontend/core',
-      'packages/common/debug',
-      'packages/frontend/electron-api',
-      'packages/frontend/i18n',
-      'packages/common/nbstore',
-      'packages/frontend/track',
-      'blocksuite/affine/all',
-      'packages/common/infra',
-      'tools/utils',
-    ],
-  },
-  {
-    location: 'packages/frontend/apps/ios',
-    name: '@affine/ios',
-    workspaceDependencies: [
-      'packages/frontend/component',
-      'packages/frontend/core',
-      'packages/common/env',
-      'packages/common/graphql',
-      'packages/frontend/i18n',
-      'packages/frontend/apps/mobile-shared',
-      'packages/common/nbstore',
-      'packages/frontend/track',
-      'blocksuite/affine/all',
-      'packages/common/infra',
-      'tools/cli',
-      'tools/utils',
-      'packages/frontend/native',
-    ],
-  },
-  {
-    location: 'packages/frontend/apps/mobile',
-    name: '@affine/mobile',
-    workspaceDependencies: [
-      'packages/frontend/component',
-      'packages/frontend/core',
-      'packages/common/env',
-      'packages/frontend/i18n',
-      'packages/common/nbstore',
-      'packages/frontend/track',
-      'blocksuite/affine/all',
-      'packages/common/infra',
-    ],
-  },
-  {
     location: 'packages/frontend/apps/mobile-shared',
     name: '@affine/mobile-shared',
     workspaceDependencies: ['packages/frontend/core'],
@@ -1374,7 +1299,7 @@ export const PackageList = [
   {
     location: 'packages/frontend/electron-api',
     name: '@affine/electron-api',
-    workspaceDependencies: ['packages/frontend/apps/electron'],
+    workspaceDependencies: [],
   },
   {
     location: 'packages/frontend/i18n',
@@ -1596,11 +1521,6 @@ export type PackageName =
   | '@affine/reader'
   | '@affine/s3-compat'
   | '@affine/admin'
-  | '@affine/android'
-  | '@affine/electron'
-  | '@affine/electron-renderer'
-  | '@affine/ios'
-  | '@affine/mobile'
   | '@affine/mobile-shared'
   | '@affine/web'
   | '@affine/component'
