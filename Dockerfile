@@ -20,7 +20,6 @@ RUN yarn install
 
 # Enforce stable build type so web/admin bundles generate the 'dist' correctly
 ENV BUILD_TYPE=stable
-ENV AFFINE_BUNDLER=webpack
 ENV GITHUB_SHA=custom_build
 
 # Build everything
@@ -45,6 +44,11 @@ COPY --from=builder /app/packages/backend/server /app
 # Copy the built frontend into static serving directories
 COPY --from=builder /app/packages/frontend/apps/web/dist /app/static
 COPY --from=builder /app/packages/frontend/admin/dist /app/static/admin
+
+# Mock mobile assets manifest to prevent crash in DocRendererController
+RUN mkdir -p /app/static/mobile
+RUN if [ ! -f /app/static/assets-manifest.json ]; then echo '{"css":[],"js":[],"publicPath":"/","description":"","gitHash":""}' > /app/static/assets-manifest.json; fi
+RUN cp /app/static/assets-manifest.json /app/static/mobile/assets-manifest.json
 
 # Ensure the native bindings and node modules are kept
 COPY --from=builder /app/node_modules /app/node_modules
