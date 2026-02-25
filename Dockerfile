@@ -61,4 +61,4 @@ RUN apt-get update && \
 ENV LD_PRELOAD=libjemalloc.so.2
 EXPOSE 3010
 
-CMD ["node", "./dist/main.js"]
+CMD ["sh", "-c", "node ./scripts/self-host-predeploy.js && node ./dist/main.js"]
