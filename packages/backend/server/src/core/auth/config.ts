@@ -26,7 +26,7 @@ declare global {
 defineModuleConfig('auth', {
   allowSignup: {
     desc: 'Whether allow new registrations.',
-    default: true,
+    default: false,
   },
   allowSignupForOauth: {
     desc: 'Whether allow new registrations via configured oauth.',

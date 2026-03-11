@@ -97,7 +97,7 @@ const FreeFeature = {
     businessBlobLimit: 100 * OneMB,
     storageQuota: 10 * OneGB,
     historyPeriod: 7 * OneDay,
-    memberLimit: 3,
+    memberLimit: 9999,
     copilotActionLimit: 10,
   },
 } as const;
@@ -109,7 +109,7 @@ const ProFeature = {
     blobLimit: 100 * OneMB,
     storageQuota: 100 * OneGB,
     historyPeriod: 30 * OneDay,
-    memberLimit: 10,
+    memberLimit: 9999,
     copilotActionLimit: 10,
   },
 } as const;
