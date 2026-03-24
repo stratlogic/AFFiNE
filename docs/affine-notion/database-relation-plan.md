@@ -580,9 +580,9 @@ This section consolidates all edge cases across all phases, organized by categor
 The implementation is complete when:
 
 - [x] Users can add a Relation column and link rows from another database in the same workspace
-- [ ] Bidirectional relations auto-create reverse columns and stay in sync
-- [ ] Self-referencing relations work (a database relating to itself)
-- [ ] Deleting related rows/columns/databases produces graceful degradation, not crashes
+- [x] Bidirectional relations auto-create reverse columns and stay in sync
+- [x] Self-referencing relations work (a database relating to itself)
+- [x] Deleting related rows/columns/databases produces graceful degradation, not crashes
 - [ ] Rollup columns compute correct aggregations from related data
 - [ ] Linked database views can be embedded on any page with independent filters/sorts
 - [ ] Data edits in linked views propagate to the source database

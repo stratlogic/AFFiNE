@@ -35,6 +35,7 @@ import {
 import {
   addProperty,
   copyCellsByProperty,
+  deleteColumn,
   deleteRows,
   deleteView,
   duplicateView,
@@ -256,9 +257,69 @@ export class DatabaseBlockDataSource extends DataSourceBase {
       newValue: value,
       setValue: newValue => {
         if (this._model.props.columns$.value.some(v => v.id === propertyId)) {
-          updateCell(this._model, rowId, {
-            columnId: propertyId,
-            value: newValue,
+          this.doc.transact(() => {
+            updateCell(this._model, rowId, {
+              columnId: propertyId,
+              value: newValue,
+            });
+
+            if (type === 'relation') {
+              const data = this.propertyDataGet(propertyId) as any;
+              const reversePropertyId = data?.reversePropertyId as
+                | string
+                | undefined;
+              const targetDatabaseId = data?.targetDatabaseId as
+                | string
+                | undefined;
+
+              if (reversePropertyId && targetDatabaseId) {
+                const targetDb = this.doc.getBlock(targetDatabaseId)
+                  ?.model as any;
+                if (targetDb) {
+                  const oldArray = (Array.isArray(old) ? old : []) as string[];
+                  const newArray = (
+                    Array.isArray(newValue) ? newValue : []
+                  ) as string[];
+
+                  const added = newArray.filter(id => !oldArray.includes(id));
+                  const removed = oldArray.filter(id => !newArray.includes(id));
+
+                  added.forEach(targetRowId => {
+                    const cell = getCell(
+                      targetDb,
+                      targetRowId,
+                      reversePropertyId
+                    );
+                    const cellVal = (
+                      Array.isArray(cell?.value) ? cell.value : []
+                    ) as string[];
+                    if (!cellVal.includes(rowId)) {
+                      updateCell(targetDb, targetRowId, {
+                        columnId: reversePropertyId,
+                        value: [...cellVal, rowId],
+                      });
+                    }
+                  });
+
+                  removed.forEach(targetRowId => {
+                    const cell = getCell(
+                      targetDb,
+                      targetRowId,
+                      reversePropertyId
+                    );
+                    const cellVal = (
+                      Array.isArray(cell?.value) ? cell.value : []
+                    ) as string[];
+                    if (cellVal.includes(rowId)) {
+                      updateCell(targetDb, targetRowId, {
+                        columnId: reversePropertyId,
+                        value: cellVal.filter(id => id !== rowId),
+                      });
+                    }
+                  });
+                }
+              }
+            }
           });
         }
       },
@@ -396,7 +457,58 @@ export class DatabaseBlockDataSource extends DataSourceBase {
 
   propertyDataSet(propertyId: string, data: Record<string, unknown>): void {
     this._runCapture();
-    this.updateProperty(propertyId, () => ({ data }));
+
+    this.doc.transact(() => {
+      const result = this.getPropertyAndIndex(propertyId);
+      if (result) {
+        const column = result.column;
+        if (column.type === 'relation') {
+          const oldData = (column.data ?? {}) as Record<string, any>;
+          const newData = (data ?? {}) as Record<string, any>;
+
+          const oldTargetId = oldData.targetDatabaseId as string | undefined;
+          const newTargetId = newData.targetDatabaseId as string | undefined;
+          const newIsBi = newData.isBidirectional !== false;
+
+          // Clean up old reverse property if target changed or bidirectional turned off
+          if (
+            oldData.reversePropertyId &&
+            (oldTargetId !== newTargetId || !newIsBi)
+          ) {
+            const oldTargetDb = this.doc.getBlock(oldTargetId as string)
+              ?.model as DatabaseBlockModel | undefined;
+            if (oldTargetDb) {
+              deleteColumn(oldTargetDb, oldData.reversePropertyId as string);
+            }
+            newData.reversePropertyId = null;
+          }
+
+          // Create new reverse property if target set and bidirectional ON
+          if (newTargetId && newIsBi && !newData.reversePropertyId) {
+            const targetDb = this.doc.getBlock(newTargetId)?.model as
+              | DatabaseBlockModel
+              | undefined;
+            if (targetDb) {
+              const newReversePropertyId = this.doc.workspace.idGenerator();
+              addProperty(targetDb, 'end', {
+                id: newReversePropertyId,
+                type: 'relation',
+                name: `Related to ${this._model.props.title?.toString() || 'Database'}`,
+                data: {
+                  targetDatabaseId: this._model.id,
+                  isBidirectional: true,
+                  isReverse: true,
+                  reversePropertyId: propertyId,
+                },
+              });
+              newData.reversePropertyId = newReversePropertyId;
+            }
+          }
+        }
+      }
+
+      this.updateProperty(propertyId, () => ({ data }));
+    });
   }
 
   propertyDataTypeGet(propertyId: string): TypeInstance | undefined {
@@ -424,6 +536,34 @@ export class DatabaseBlockDataSource extends DataSourceBase {
     if (index < 0) return;
 
     this.doc.transact(() => {
+      const column = this._model.props.columns[index];
+      if (column.type === 'relation') {
+        const data = (column.data ?? {}) as Record<string, any>;
+        const targetDatabaseId = data.targetDatabaseId as string | undefined;
+        const reversePropertyId = data.reversePropertyId as string | undefined;
+        const isReverse = data.isReverse === true;
+
+        if (targetDatabaseId && reversePropertyId) {
+          const targetDb = this.doc.getBlock(targetDatabaseId)?.model as
+            | DatabaseBlockModel
+            | undefined;
+          if (targetDb) {
+            if (isReverse) {
+              // Task 2.5: Detach from forward
+              updateProperty(targetDb, reversePropertyId, col => ({
+                data: {
+                  ...col.data,
+                  reversePropertyId: null,
+                },
+              }));
+            } else {
+              // Task 2.4: Delete reverse column in target
+              deleteColumn(targetDb, reversePropertyId);
+            }
+          }
+        }
+      }
+
       this._model.props.columns = this._model.props.columns.filter(
         (_, i) => i !== index
       );

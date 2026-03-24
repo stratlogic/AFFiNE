@@ -7,6 +7,7 @@ export const relationPropertyType = propertyType('relation');
 
 export const RelationPropertySchema = zod.object({
   targetDatabaseId: zod.string(),
+  isBidirectional: zod.boolean().default(true),
   isReverse: zod.boolean().default(false),
   reversePropertyId: zod.string().nullable().default(null),
 });
@@ -19,6 +20,7 @@ export const relationPropertyModelConfig = relationPropertyType.modelConfig({
     schema: RelationPropertySchema,
     default: () => ({
       targetDatabaseId: '',
+      isBidirectional: true,
       isReverse: false,
       reversePropertyId: null,
     }),

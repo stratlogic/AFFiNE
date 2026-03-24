@@ -112,9 +112,11 @@ export class RelationSettings extends SignalWatcher(
   override render() {
     const store = (this.column.view.manager.dataSource as any).doc as Store;
     const databases = findAllDatabases(store);
-    const currentTargetId = this.column.data$.value.targetDatabaseId as string;
+    const data = this.column.data$.value;
+    const currentTargetId = data.targetDatabaseId as string;
+    const isBidirectional = data.isBidirectional !== false;
 
-    return menu.subMenu({
+    const subMenu = menu.subMenu({
       name: 'Related Database',
       prefix: renderUniLit(createIcon('SearchIcon')),
       options: {
@@ -124,8 +126,8 @@ export class RelationSettings extends SignalWatcher(
             name: db.title,
             isSelected: db.id === currentTargetId,
             select: () => {
-              this.column.dataUpdate(data => ({
-                ...data,
+              this.column.dataUpdate(d => ({
+                ...d,
                 targetDatabaseId: db.id,
               }));
               // Also update name if it matches the default
@@ -137,6 +139,23 @@ export class RelationSettings extends SignalWatcher(
         ) as any,
       },
     });
+
+    if (currentTargetId) {
+      const toggle = menu.action({
+        name: 'Show on target database',
+        isSelected: isBidirectional,
+        select: () => {
+          this.column.dataUpdate(d => ({
+            ...d,
+            isBidirectional: !isBidirectional,
+          }));
+          return false; // keep menu open
+        },
+      });
+      return menu.group({ items: [subMenu, toggle] });
+    }
+
+    return subMenu;
   }
 }
 
