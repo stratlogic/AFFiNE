@@ -5,11 +5,13 @@ import { multiSelectPropertyConfig } from './multi-select/cell-renderer.js';
 import { numberPropertyConfig } from './number/cell-renderer.js';
 import { progressPropertyConfig } from './progress/cell-renderer.js';
 import { relationPropertyConfig } from './relation/cell-renderer.js';
+import { rollupPropertyConfig } from './rollup/cell-renderer.js';
 import { selectPropertyConfig } from './select/cell-renderer.js';
 import { textPropertyConfig } from './text/cell-renderer.js';
 
 export * from './converts.js';
 export * from './number/types.js';
+export * from './rollup/index.js';
 export * from './select/define.js';
 export const propertyPresets = {
   checkboxPropertyConfig,
@@ -21,4 +23,5 @@ export const propertyPresets = {
   selectPropertyConfig,
   textPropertyConfig,
   relationPropertyConfig,
+  rollupPropertyConfig,
 };

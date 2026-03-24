@@ -134,9 +134,9 @@
 | ------------------------------------- | ----------- | -------------- | -------------- | ------- | ---------- |
 | **Phase 1 — One-Way Relations**       | 9           | 0              | 0              | 9       | 0          |
 | **Phase 2 — Bidirectional Relations** | 9           | 0              | 0              | 9       | 0          |
-| **Phase 3 — Rollup Property**         | 10          | 10             | 0              | 0       | 0          |
+| **Phase 3 — Rollup Property**         | 10          | 0              | 0              | 10      | 0          |
 | **Phase 4 — Linked Database Views**   | 9           | 9              | 0              | 0       | 0          |
 | **Phase 5 — Additional Views**        | 8           | 8              | 0              | 0       | 0          |
 | **Phase 6 — Tab Bar Enhancement**     | 5           | 5              | 0              | 0       | 0          |
 | **Cross-Cutting**                     | 5           | 5              | 0              | 0       | 0          |
-| **TOTAL**                             | **55**      | **40**         | **0**          | **15**  | **0**      |
+| **TOTAL**                             | **55**      | **30**         | **0**          | **25**  | **0**      |

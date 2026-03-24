@@ -20,7 +20,11 @@ import {
   ViewManagerBase,
   type ViewMeta,
 } from '@blocksuite/data-view';
-import { propertyPresets } from '@blocksuite/data-view/property-presets';
+import {
+  propertyPresets,
+  type RollupCalculation,
+  type RollupPropertyData,
+} from '@blocksuite/data-view/property-presets';
 import { IS_MOBILE } from '@blocksuite/global/env';
 import { BlockSuiteError, ErrorCode } from '@blocksuite/global/exceptions';
 import type { EditorHost } from '@blocksuite/std';
@@ -337,6 +341,11 @@ export class DatabaseBlockDataSource extends DataSourceBase {
     if (this.isSpacialProperty(type)) {
       return this.spacialValueGet(rowId, propertyId, type);
     }
+
+    if (type === 'rollup') {
+      return this._computeRollup(rowId, propertyId);
+    }
+
     const meta = this.propertyMetaGet(type);
     if (!meta) {
       return;
@@ -537,6 +546,7 @@ export class DatabaseBlockDataSource extends DataSourceBase {
 
     this.doc.transact(() => {
       const column = this._model.props.columns[index];
+      if (!column) return;
       if (column.type === 'relation') {
         const data = (column.data ?? {}) as Record<string, any>;
         const targetDatabaseId = data.targetDatabaseId as string | undefined;
@@ -757,6 +767,101 @@ export class DatabaseBlockDataSource extends DataSourceBase {
       return;
     }
     return this.viewMetaGet(view.mode);
+  }
+
+  private _computeRollup(rowId: string, propertyId: string): unknown {
+    const config = this.propertyDataGet(propertyId) as RollupPropertyData;
+    if (
+      !config.relationPropertyId ||
+      !config.targetPropertyId ||
+      !config.calculation
+    ) {
+      return null;
+    }
+
+    const relationValue = this.cellValueGet(
+      rowId,
+      config.relationPropertyId
+    ) as string[] | null;
+    if (!relationValue || (relationValue && relationValue.length === 0)) {
+      return null;
+    }
+
+    const relationData = this.propertyDataGet(config.relationPropertyId) as any;
+    const targetDatabaseId = relationData?.targetDatabaseId;
+    if (!targetDatabaseId) {
+      return null;
+    }
+
+    const targetDb = this.doc.getBlock(targetDatabaseId)?.model as
+      | DatabaseBlockModel
+      | undefined;
+    if (!targetDb) {
+      return null;
+    }
+
+    const values = (relationValue || [])
+      .map(targetRowId => {
+        const cell = getCell(targetDb, targetRowId, config.targetPropertyId);
+        return cell?.value;
+      })
+      .filter(v => v !== undefined);
+
+    return this._applyRollupCalculation(config.calculation, values);
+  }
+
+  private _applyRollupCalculation(
+    calculation: RollupCalculation,
+    values: unknown[]
+  ): unknown {
+    switch (calculation) {
+      case 'count_all':
+        return values.length;
+      case 'count_values':
+        return values.filter(v => v !== null && v !== undefined).length;
+      case 'count_unique':
+        return new Set(values).size;
+      case 'count_empty':
+        return values.filter(v => v == null).length;
+      case 'count_not_empty':
+        return values.filter(v => v != null).length;
+      case 'sum':
+        return (values as any[]).reduce(
+          (a, b) => (Number(a) || 0) + (Number(b) || 0),
+          0
+        );
+      case 'average':
+        return values.length > 0
+          ? (values as any[]).reduce(
+              (a, b) => (Number(a) || 0) + (Number(b) || 0),
+              0
+            ) / values.length
+          : 0;
+      case 'min':
+        return values.length > 0
+          ? Math.min(...values.map(v => Number(v) || 0))
+          : null;
+      case 'max':
+        return values.length > 0
+          ? Math.max(...values.map(v => Number(v) || 0))
+          : null;
+      case 'earliest': {
+        const dates = values
+          .map(v => (v instanceof Date ? v.getTime() : Number(v)))
+          .filter(v => !isNaN(v));
+        return dates.length > 0 ? new Date(Math.min(...dates)) : null;
+      }
+      case 'latest': {
+        const dates = values
+          .map(v => (v instanceof Date ? v.getTime() : Number(v)))
+          .filter(v => !isNaN(v));
+        return dates.length > 0 ? new Date(Math.max(...dates)) : null;
+      }
+      case 'show_original':
+        return values;
+      default:
+        return null;
+    }
   }
 }
 

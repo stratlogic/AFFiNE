@@ -14,6 +14,7 @@ const {
   progressPropertyConfig,
   selectPropertyConfig,
   relationPropertyConfig,
+  rollupPropertyConfig,
 } = propertyPresets;
 export const databaseBlockProperties = {
   checkboxColumnConfig: checkboxPropertyConfig,
@@ -23,6 +24,7 @@ export const databaseBlockProperties = {
   progressColumnConfig: progressPropertyConfig,
   selectColumnConfig: selectPropertyConfig,
   relationColumnConfig: relationPropertyConfig,
+  rollupColumnConfig: rollupPropertyConfig,
   imageColumnConfig: propertyPresets.imagePropertyConfig,
   linkColumnConfig,
   richTextColumnConfig,
