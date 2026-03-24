@@ -11,6 +11,7 @@ import { EmbedDocViewExtension } from '@blocksuite/affine-block-embed-doc/view';
 import { FrameViewExtension } from '@blocksuite/affine-block-frame/view';
 import { ImageViewExtension } from '@blocksuite/affine-block-image/view';
 import { LatexViewExtension } from '@blocksuite/affine-block-latex/view';
+import { LinkedDatabaseViewExtension } from '@blocksuite/affine-block-linked-database/view';
 import { ListViewExtension } from '@blocksuite/affine-block-list/view';
 import { NoteViewExtension } from '@blocksuite/affine-block-note/view';
 import { ParagraphViewExtension } from '@blocksuite/affine-block-paragraph/view';
@@ -80,6 +81,7 @@ export function getInternalViewExtensions() {
     CodeBlockViewExtension,
     DataViewViewExtension,
     DatabaseViewExtension,
+    LinkedDatabaseViewExtension,
     DividerViewExtension,
     EdgelessTextViewExtension,
     EmbedViewExtension,
