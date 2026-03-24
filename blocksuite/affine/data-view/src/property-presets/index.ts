@@ -4,6 +4,7 @@ import { imagePropertyConfig } from './image/cell-renderer.js';
 import { multiSelectPropertyConfig } from './multi-select/cell-renderer.js';
 import { numberPropertyConfig } from './number/cell-renderer.js';
 import { progressPropertyConfig } from './progress/cell-renderer.js';
+import { relationPropertyConfig } from './relation/cell-renderer.js';
 import { selectPropertyConfig } from './select/cell-renderer.js';
 import { textPropertyConfig } from './text/cell-renderer.js';
 
@@ -19,4 +20,5 @@ export const propertyPresets = {
   progressPropertyConfig,
   selectPropertyConfig,
   textPropertyConfig,
+  relationPropertyConfig,
 };

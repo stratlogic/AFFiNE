@@ -11,6 +11,7 @@ export interface Renderer<
 > {
   type: string;
   icon?: UniComponent;
+  settings?: UniComponent<any>;
   cellRenderer: CellRenderer<Data, RawValue, JsonValue>;
 }
 

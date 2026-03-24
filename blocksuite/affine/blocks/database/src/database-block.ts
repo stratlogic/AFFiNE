@@ -140,6 +140,8 @@ export class DatabaseBlockComponent extends CaptionedBlockComponent<DatabaseBloc
   };
 
   private readonly dataSource = lazy(() => {
+    // DatabaseBlockDataSource manages the underlying data and property metadata.
+    // It now supports the 'relation' property type, which allows cross-database linking.
     const dataSource = new DatabaseBlockDataSource(this.model, dataSource => {
       dataSource.serviceSet(EditorHostKey, this.host);
       this.std.provider

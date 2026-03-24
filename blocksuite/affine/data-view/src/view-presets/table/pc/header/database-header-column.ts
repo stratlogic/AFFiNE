@@ -210,6 +210,16 @@ export class DatabaseHeaderColumn extends SignalWatcher(
         items: [
           inputConfig(this.column),
           typeConfig(this.column),
+          menu.group({
+            items: [
+              this.column.meta$.value?.renderer.settings
+                ? () =>
+                    renderUniLit(this.column.meta$.value?.renderer.settings, {
+                      column: this.column,
+                    })
+                : null,
+            ].filter(Boolean) as MenuConfig[],
+          }),
           // Number format begin
           menu.subMenu({
             name: 'Number Format',

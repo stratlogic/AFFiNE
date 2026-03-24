@@ -173,4 +173,17 @@ export const databasePropertyConverts = [
       };
     }
   ),
+  createPropertyConvert(
+    propertyModelPresets.relationPropertyModelConfig,
+    richTextPropertyModelConfig,
+    (_property, cells) => {
+      return {
+        property: {},
+        cells: cells.map(v => {
+          const ids = Array.isArray(v) ? v : [];
+          return new Text(ids.join(', ')).yText;
+        }),
+      };
+    }
+  ),
 ];
