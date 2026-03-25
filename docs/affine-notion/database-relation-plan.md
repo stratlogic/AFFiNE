@@ -583,7 +583,7 @@ The implementation is complete when:
 - [x] Bidirectional relations auto-create reverse columns and stay in sync
 - [x] Self-referencing relations work (a database relating to itself)
 - [x] Deleting related rows/columns/databases produces graceful degradation, not crashes
-- [ ] Rollup columns compute correct aggregations from related data
+- [x] Rollup columns compute correct aggregations from related data
 - [ ] Linked database views can be embedded on any page with independent filters/sorts
 - [ ] Data edits in linked views propagate to the source database
 - [ ] At least Gallery, List, and Calendar views are functional alongside Table and Kanban
