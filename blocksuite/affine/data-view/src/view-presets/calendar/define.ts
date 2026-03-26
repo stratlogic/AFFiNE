@@ -1,6 +1,7 @@
 import { createIcon } from '../../core/utils/uni-icon.js';
-import { viewType } from '../../core/view-manager/view-type.js';
+import { viewType } from '../../core/view/data-view.js';
 import { CalendarSingleView } from './calendar-view-manager.js';
+import { CalendarViewUILogic } from './pc/calendar-view-ui-logic.js';
 
 export const calendarViewType = viewType('calendar');
 
@@ -15,6 +16,7 @@ export const calendarViewModel = calendarViewType.createModel({
   }),
 });
 
-export const calendarViewMeta = calendarViewModel.createPropertyMeta({
-  icon: createIcon('CalendarIcon'),
+export const calendarViewMeta = calendarViewModel.createMeta({
+  icon: createIcon('TodayIcon'),
+  pcLogic: () => CalendarViewUILogic as any,
 });
