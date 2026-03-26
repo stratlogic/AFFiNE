@@ -753,19 +753,24 @@ export class DatabaseBlockDataSource extends DataSourceBase {
   viewMetaGet(type: string): ViewMeta {
     const view = databaseBlockViewMap[type];
     if (!view) {
-      throw new BlockSuiteError(
-        ErrorCode.DatabaseBlockError,
-        `Unknown view type: ${type}`
+      // Defensive fallback for forward-compatibility: an old client opening a
+      // doc written by a newer client may encounter an unknown view mode.
+      // Return the first registered view rather than throwing, so the database
+      // renders in a degraded-but-stable state instead of crashing.
+      console.warn(
+        `[AFFiNE] Unknown database view type "${type}". Falling back to default view.`
       );
+      return databaseBlockViews[0]!;
     }
     return view;
   }
 
   viewMetaGetById(viewId: string): ViewMeta | undefined {
     const view = this.viewDataGet(viewId);
-    if (!view) {
-      return;
-    }
+    if (!view) return;
+    // Short-circuit before viewMetaGet if the mode is unrecognised — lets
+    // viewGet() return undefined and the view manager skip this view safely.
+    if (!databaseBlockViewMap[view.mode]) return;
     return this.viewMetaGet(view.mode);
   }
 

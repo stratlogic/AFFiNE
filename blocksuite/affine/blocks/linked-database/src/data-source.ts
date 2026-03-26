@@ -263,10 +263,11 @@ export class LinkedDatabaseBlockDataSource extends DataSourceBase {
   override viewMetaGet(type: string): ViewMeta {
     const view = databaseBlockViewMap[type];
     if (!view) {
-      throw new BlockSuiteError(
-        ErrorCode.DatabaseBlockError,
-        `Unknown view type: ${type}`
+      // Defensive fallback: unknown view mode from a newer client.
+      console.warn(
+        `[AFFiNE] LinkedDatabase: unknown view type "${type}". Falling back to default view.`
       );
+      return databaseBlockViews[0]!;
     }
     return view;
   }
@@ -274,6 +275,7 @@ export class LinkedDatabaseBlockDataSource extends DataSourceBase {
   override viewMetaGetById(viewId: string): ViewMeta | undefined {
     const view = this.viewDataGet(viewId);
     if (!view) return undefined;
+    if (!databaseBlockViewMap[view.mode]) return undefined;
     return this.viewMetaGet(view.mode);
   }
 
