@@ -15,24 +15,11 @@ import { repeat } from 'lit/directives/repeat.js';
 import { renderUniLit } from '../../core/index.js';
 import { BaseCellRenderer } from '../../core/property/index.js';
 import { createFromBaseCellRenderer } from '../../core/property/renderer.js';
+import { findAllDatabases } from '../../core/utils/database-picker.js';
 import { createUniComponentFromWebComponent } from '../../core/utils/uni-component/index.js';
 import { createIcon } from '../../core/utils/uni-icon.js';
 import type { TableProperty } from '../../view-presets/table/table-view-manager.js';
 import { relationPropertyModelConfig } from './define.js';
-
-// Helper to resolve all databases in the workspace
-function findAllDatabases(store: Store): { id: string; title: string }[] {
-  const result: { id: string; title: string }[] = [];
-  const databases = store.getBlocksByFlavour('affine:database');
-  databases.forEach(block => {
-    const model = block.model as any;
-    result.push({
-      id: block.id,
-      title: model.title?.toString() || 'Untitled Database',
-    });
-  });
-  return result;
-}
 
 // Helper to resolve row titles across the workspace
 function getRowTitle(store: Store, _targetDbId: string, rowId: string): string {

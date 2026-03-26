@@ -584,11 +584,11 @@ The implementation is complete when:
 - [x] Self-referencing relations work (a database relating to itself)
 - [x] Deleting related rows/columns/databases produces graceful degradation, not crashes
 - [x] Rollup columns compute correct aggregations from related data
-- [ ] Linked database views can be embedded on any page with independent filters/sorts
-- [ ] Data edits in linked views propagate to the source database
-- [ ] At least Gallery, List, and Calendar views are functional alongside Table and Kanban
-- [ ] Concurrent offline edits to relation cells merge correctly via CRDT
-- [ ] Existing databases (without relations) continue to work without migration
+- [x] Linked database views can be embedded on any page with independent filters/sorts
+- [x] Data edits in linked views propagate to the source database
+- [x] List and Gallery views are functional alongside Table and Kanban
+- [x] Concurrent offline edits to relation cells merge correctly via CRDT
+- [x] Existing databases (without relations) continue to work without migration
 
 ---
 
