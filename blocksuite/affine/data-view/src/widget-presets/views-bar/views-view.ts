@@ -6,6 +6,7 @@ import {
   popupTargetFromElement,
 } from '@blocksuite/affine-components/context-menu';
 import {
+  CopyIcon,
   DeleteIcon,
   DuplicateIcon,
   InfoIcon,
@@ -215,6 +216,29 @@ export class DataViewHeaderViews extends WidgetBase {
           menu.group({
             items: [
               menu.action({
+                name: 'Copy Link to View',
+                prefix: CopyIcon(),
+                select: () => {
+                  const url = new URL(window.location.href);
+                  url.searchParams.set('viewId', id);
+                  navigator.clipboard
+                    .writeText(url.toString())
+                    .then(() => {
+                      // Brief visual feedback inline — avoids the EditorHost dependency of toast()
+                      const el = document.createElement('span');
+                      el.textContent = '✓ Link copied';
+                      el.style.cssText =
+                        'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:6px 14px;border-radius:6px;font-size:13px;z-index:9999;pointer-events:none;transition:opacity .3s';
+                      document.body.append(el);
+                      setTimeout(() => {
+                        el.style.opacity = '0';
+                        setTimeout(() => el.remove(), 300);
+                      }, 1800);
+                    })
+                    .catch(() => {});
+                },
+              }),
+              menu.action({
                 name: 'Duplicate',
                 prefix: DuplicateIcon(),
                 select: () => {
@@ -224,6 +248,7 @@ export class DataViewHeaderViews extends WidgetBase {
               menu.action({
                 name: 'Delete',
                 prefix: DeleteIcon(),
+                hide: () => this.viewManager.views$.value.length <= 1,
                 select: () => {
                   view.delete();
                 },

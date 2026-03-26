@@ -137,6 +137,6 @@
 | **Phase 3 — Rollup Property**         | 10          | 0              | 0              | 10      | 0          |
 | **Phase 4 — Linked Database Views**   | 9           | 9              | 0              | 0       | 0          |
 | **Phase 5 — Additional Views**        | 8           | 0              | 0              | 4       | 4          |
-| **Phase 6 — Tab Bar Enhancement**     | 5           | 5              | 0              | 0       | 0          |
+| **Phase 6 — Tab Bar Enhancement**     | 5           | 0              | 0              | 5       | 0          |
 | **Cross-Cutting**                     | 5           | 5              | 0              | 0       | 0          |
-| **TOTAL**                             | **55**      | **22**         | **0**          | **29**  | **4**      |
+| **TOTAL**                             | **55**      | **17**         | **0**          | **34**  | **4**      |

@@ -113,6 +113,8 @@ export class ViewManagerBase implements ViewManager {
   }
 
   viewDelete(id: string): void {
+    // Never allow deleting the last view — a database must always have at least one.
+    if (this.views$.value.length <= 1) return;
     this.dataSource.viewDataDelete(id);
     this.setCurrentView(this.views$.value[0]);
   }
