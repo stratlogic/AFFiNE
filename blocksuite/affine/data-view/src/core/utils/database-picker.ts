@@ -8,6 +8,7 @@ import type { Store } from '@blocksuite/store';
 export interface DatabaseEntry {
   id: string;
   title: string;
+  docTitle?: string;
 }
 
 /**
@@ -15,9 +16,14 @@ export interface DatabaseEntry {
  * Shared by RelationSettings (config panel) and the linked-database slash command.
  */
 export function findAllDatabases(store: Store): DatabaseEntry[] {
+  const docId = store.id;
+  const docMeta = store.workspace.meta.docMetas.find(m => m.id === docId);
+  const docTitle = docMeta?.title;
+
   return store.getBlocksByFlavour('affine:database').map(block => ({
     id: block.id,
     title: (block.model as any).props?.title?.toString() || 'Untitled Database',
+    docTitle,
   }));
 }
 

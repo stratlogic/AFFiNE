@@ -2,12 +2,13 @@ import '@blocksuite/affine-components/toggle-switch';
 
 import {
   menu,
-  popMenu,
-  popupTargetFromElement,
+  renderSubMenu,
+  subMenuMiddleware,
 } from '@blocksuite/affine-components/context-menu';
 import { SignalWatcher, WithDisposable } from '@blocksuite/global/lit';
 import { ShadowlessElement } from '@blocksuite/std';
 import type { Store } from '@blocksuite/store';
+import { signal } from '@preact/signals-core';
 import { html } from 'lit';
 import { property } from 'lit/decorators.js';
 
@@ -27,14 +28,61 @@ export class RollupSettings extends SignalWatcher(
   @property({ attribute: false })
   accessor menu!: any;
 
-  private popMenu(items: any[], e: MouseEvent, title?: string) {
-    e.stopPropagation();
-    popMenu(popupTargetFromElement(e.currentTarget as HTMLElement), {
-      options: {
-        title: title ? { text: title } : undefined,
-        items,
+  private readonly _relationSearch$ = signal('');
+  private readonly _propertySearch$ = signal('');
+
+  private renderSubMenuRow(
+    label: string,
+    value: string,
+    title: string,
+    items: any[],
+    disabled = false
+  ) {
+    if (disabled) {
+      return html`
+        <div
+          style="display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; opacity: 0.5; pointer-events: none;"
+        >
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <div
+              style="font-size: 10px; color: var(--affine-text-secondary-color);"
+            >
+              ${label}
+            </div>
+            <div style="font-size: 14px;">${value}</div>
+          </div>
+          <uni-lit .uni="${createIcon('ArrowRightSmallIcon')}"></uni-lit>
+        </div>
+      `;
+    }
+
+    return renderSubMenu(
+      {
+        content: () => html`
+          <div
+            style="display: flex; flex-direction: column; gap: 2px; flex: 1; text-align: left;"
+          >
+            <div
+              style="font-size: 10px; color: var(--affine-text-secondary-color);"
+            >
+              ${label}
+            </div>
+            <div
+              style="font-size: 14px; color: var(--affine-text-primary-color);"
+            >
+              ${value}
+            </div>
+          </div>
+          <uni-lit .uni="${createIcon('ArrowRightSmallIcon')}"></uni-lit>
+        `,
+        options: {
+          title: { text: title },
+          items,
+        },
+        middleware: subMenuMiddleware,
       },
-    });
+      this.menu
+    );
   }
 
   override render() {
@@ -54,8 +102,22 @@ export class RollupSettings extends SignalWatcher(
 
     if (relationColumns.length === 0) {
       return html`
-        <div style="padding: 8px; color: var(--affine-text-secondary-color);">
-          No relation columns found
+        <div
+          style="padding: 8px; color: var(--affine-text-secondary-color); display: flex; flex-direction: column; gap: 8px;"
+        >
+          <div>No relation columns found</div>
+          <div
+            class="dv-hover"
+            style="padding: 4px 8px; border-radius: 4px; cursor: pointer; color: var(--affine-primary-color); font-size: 14px; background: var(--affine-background-secondary-color); text-align: center;"
+            @click="${() => {
+              this.column.view.manager.dataSource.propertyAdd('end', {
+                type: 'relation',
+                name: 'New Relation',
+              });
+            }}"
+          >
+            Add Relation Property
+          </div>
         </div>
       `;
     }
@@ -89,6 +151,24 @@ export class RollupSettings extends SignalWatcher(
     const targetType = selectedTarget?.type || '';
 
     // Calculations
+    const calculationMap: Record<string, { name: string; info?: string }> = {
+      count_all: { name: 'Count all', info: 'Total number of rows' },
+      count_values: { name: 'Count values', info: 'Number of non-empty cells' },
+      count_unique: { name: 'Count unique', info: 'Number of unique values' },
+      count_empty: { name: 'Count empty', info: 'Number of empty cells' },
+      count_not_empty: {
+        name: 'Count not empty',
+        info: 'Number of non-empty cells',
+      },
+      show_original: { name: 'Show original', info: 'List all values' },
+      sum: { name: 'Sum', info: 'Total of all numbers' },
+      average: { name: 'Average', info: 'Mean of all numbers' },
+      min: { name: 'Min', info: 'Smallest value' },
+      max: { name: 'Max', info: 'Largest value' },
+      earliest: { name: 'Earliest', info: 'First date' },
+      latest: { name: 'Latest', info: 'Last date' },
+    };
+
     const allowedCalculations = [
       'count_all',
       'count_values',
@@ -108,114 +188,108 @@ export class RollupSettings extends SignalWatcher(
         style="display: flex; flex-direction: column; gap: 4px; padding: 4px;"
       >
         <!-- Relation -->
-        <div
-          class="dv-hover"
-          style="display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; border-radius: 4px; cursor: pointer;"
-          @click="${(e: MouseEvent) =>
-            this.popMenu(
-              relationColumns.map(col =>
-                menu.action({
-                  name: col.name || col.id,
-                  isSelected: col.id === relationPropertyId,
-                  select: () => {
-                    this.column.dataUpdate(d => ({
-                      ...d,
-                      relationPropertyId: col.id,
-                      targetPropertyId: '',
-                    }));
-                  },
-                })
-              ),
-              e,
-              'Select a relation'
-            )}"
-        >
-          <div style="display: flex; flex-direction: column; gap: 2px;">
-            <div
-              style="font-size: 10px; color: var(--affine-text-secondary-color);"
-            >
-              Relation
-            </div>
-            <div style="font-size: 14px;">${relationName}</div>
-          </div>
-          <uni-lit .uni="${createIcon('ArrowRightSmallIcon')}"></uni-lit>
-        </div>
+        ${this.renderSubMenuRow('Relation', relationName, 'Select a relation', [
+          menu.input({
+            initialValue: '',
+            placeholder: 'Search relations...',
+            onChange: val => {
+              this._relationSearch$.value = val;
+            },
+          }),
+          menu.group({
+            items: [
+              menu.dynamic(() => {
+                const filter = this._relationSearch$.value.toLowerCase();
+                return relationColumns
+                  .filter(col =>
+                    (col.name || col.id).toLowerCase().includes(filter)
+                  )
+                  .map(col =>
+                    menu.action({
+                      name: col.name || col.id,
+                      isSelected: col.id === relationPropertyId,
+                      select: () => {
+                        this.column.dataUpdate(d => ({
+                          ...d,
+                          relationPropertyId: col.id,
+                          targetPropertyId: '',
+                        }));
+                      },
+                    })
+                  );
+              }),
+            ],
+          }),
+        ])}
 
         <!-- Property -->
-        <div
-          class="dv-hover"
-          style="display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; border-radius: 4px; cursor: pointer; ${!relationPropertyId
-            ? 'opacity: 0.5; pointer-events: none;'
-            : ''}"
-          @click="${(e: MouseEvent) =>
-            this.popMenu(
-              targetColumns.map(col =>
-                menu.action({
-                  name: col.name || col.id,
-                  isSelected: col.id === targetPropertyId,
-                  select: () => {
-                    this.column.dataUpdate(d => ({
-                      ...d,
-                      targetPropertyId: col.id,
-                    }));
-                    this.menu?.close();
-                  },
-                })
-              ),
-              e,
-              'Select a property'
-            )}"
-        >
-          <div style="display: flex; flex-direction: column; gap: 2px;">
-            <div
-              style="font-size: 10px; color: var(--affine-text-secondary-color);"
-            >
-              Property
-            </div>
-            <div style="font-size: 14px;">${targetName}</div>
-          </div>
-          <uni-lit .uni="${createIcon('ArrowRightSmallIcon')}"></uni-lit>
-        </div>
+        ${this.renderSubMenuRow(
+          'Property',
+          targetName,
+          'Select a property',
+          [
+            menu.input({
+              initialValue: '',
+              placeholder: 'Search properties...',
+              onChange: val => {
+                this._propertySearch$.value = val;
+              },
+            }),
+            menu.group({
+              items: [
+                menu.dynamic(() => {
+                  const filter = this._propertySearch$.value.toLowerCase();
+                  return targetColumns
+                    .filter(col =>
+                      (col.name || col.id).toLowerCase().includes(filter)
+                    )
+                    .map(col =>
+                      menu.action({
+                        name: col.name || col.id,
+                        isSelected: col.id === targetPropertyId,
+                        select: () => {
+                          this.column.dataUpdate(d => ({
+                            ...d,
+                            targetPropertyId: col.id,
+                          }));
+                          this.menu?.close();
+                        },
+                      })
+                    );
+                }),
+              ],
+            }),
+          ],
+          !relationPropertyId
+        )}
 
         <!-- Calculation -->
-        <div
-          class="dv-hover"
-          style="display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; border-radius: 4px; cursor: pointer; ${!targetPropertyId
-            ? 'opacity: 0.5; pointer-events: none;'
-            : ''}"
-          @click="${(e: MouseEvent) =>
-            this.popMenu(
-              allowedCalculations.map(calc =>
-                menu.action({
-                  name: calc.replace(/_/g, ' '),
-                  isSelected: calc === calculation,
-                  select: () => {
-                    this.column.dataUpdate(d => ({
-                      ...d,
-                      calculation: calc,
-                    }));
-                    this.menu?.close();
-                  },
-                })
-              ),
-              e,
-              'Select calculation'
-            )}"
-        >
-          <div style="display: flex; flex-direction: column; gap: 2px;">
-            <div
-              style="font-size: 10px; color: var(--affine-text-secondary-color);"
-            >
-              Calculate
-            </div>
-            <div style="font-size: 14px;">
-              ${calculation
-                ? calculation.replace(/_/g, ' ')
-                : 'Select calculation'}
-            </div>
-          </div>
-          <uni-lit .uni="${createIcon('ArrowRightSmallIcon')}"></uni-lit>
-        </div>
+        ${this.renderSubMenuRow(
+          'Calculate',
+          calculationMap[calculation]?.name || 'Select calculation',
+          'Select calculation',
+          allowedCalculations.map(calc =>
+            menu.action({
+              name: calculationMap[calc]?.name || calc.replace(/_/g, ' '),
+              info: calculationMap[calc]?.info
+                ? html`<div
+                    style="font-size: 10px; color: var(--affine-text-secondary-color);"
+                  >
+                    ${calculationMap[calc].info}
+                  </div>`
+                : undefined,
+              isSelected: calc === calculation,
+              select: () => {
+                this.column.dataUpdate(d => ({
+                  ...d,
+                  calculation: calc,
+                }));
+                this.menu?.close();
+              },
+            })
+          ),
+          !targetPropertyId
+        )}
       </div>
     `;
   }
@@ -246,7 +320,7 @@ export class RollupCell extends BaseCellRenderer<any> {
           ${this.value.map(
             v => html`
               <div
-                style="padding: 2px 6px; background: var(--affine-background-tertiary-color); border-radius: 4px; font-size: 12px;"
+                style="padding: 2px 6px; background: var(--affine-background-secondary-color); border: 1px solid var(--affine-border-color); border-radius: 4px; font-size: 12px; color: var(--affine-text-primary-color); white-space: nowrap;"
               >
                 ${v}
               </div>
@@ -256,7 +330,11 @@ export class RollupCell extends BaseCellRenderer<any> {
       `;
     }
 
-    return html`<span>${this.value}</span>`;
+    return html`<div
+      style="padding: 2px 6px; background: var(--affine-background-secondary-color); border: 1px solid var(--affine-border-color); border-radius: 4px; font-size: 12px; color: var(--affine-text-primary-color); display: inline-block;"
+    >
+      ${this.value}
+    </div>`;
   }
 }
 

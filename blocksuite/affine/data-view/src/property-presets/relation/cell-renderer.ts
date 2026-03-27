@@ -5,6 +5,8 @@ import {
   popMenu,
   type PopupTarget,
   popupTargetFromElement,
+  renderSubMenu,
+  subMenuMiddleware,
 } from '@blocksuite/affine-components/context-menu';
 import { SignalWatcher, WithDisposable } from '@blocksuite/global/lit';
 import { ShadowlessElement } from '@blocksuite/std';
@@ -86,6 +88,13 @@ function popRowSelect(
             }),
           ],
         }),
+        menu.action({
+          name: 'Done',
+          class: { 'done-button': true },
+          select: () => {
+            onComplete?.();
+          },
+        }),
       ],
     },
   });
@@ -100,6 +109,8 @@ export class RelationSettings extends SignalWatcher(
   @property({ attribute: false })
   accessor menu!: any;
 
+  private readonly _dbSearch$ = signal('');
+
   private toggleBidirectional(e: MouseEvent) {
     e.stopPropagation();
     this.column.dataUpdate(data => ({
@@ -108,36 +119,45 @@ export class RelationSettings extends SignalWatcher(
     }));
   }
 
-  private popDatabaseSelect(e: MouseEvent) {
-    e.stopPropagation();
-    const dataSource = this.column.view.manager.dataSource as any;
-    const store = dataSource.doc as Store;
-    if (!store) return;
-    const databases = findAllDatabases(store);
-
-    popMenu(popupTargetFromElement(e.currentTarget as HTMLElement), {
-      options: {
-        title: { text: 'Select database' },
-        items: databases.map(db =>
-          menu.action({
-            name: db.title || 'Untitled Database',
-            isSelected: db.id === this.column.data$.value.targetDatabaseId,
-            select: () => {
-              this.column.dataUpdate(data => ({
-                ...data,
-                targetDatabaseId: db.id,
-              }));
-              this.menu?.close();
-            },
-          })
-        ),
+  private renderSubMenuRow(
+    label: string,
+    value: string,
+    title: string,
+    items: any[]
+  ) {
+    return renderSubMenu(
+      {
+        content: () => html`
+          <div
+            style="display: flex; flex-direction: column; gap: 2px; flex: 1; text-align: left;"
+          >
+            <div
+              style="font-size: 10px; color: var(--affine-text-secondary-color);"
+            >
+              ${label}
+            </div>
+            <div
+              style="font-size: 14px; color: var(--affine-text-primary-color);"
+            >
+              ${value}
+            </div>
+          </div>
+          <uni-lit .uni="${createIcon('ArrowRightSmallIcon')}"></uni-lit>
+        `,
+        options: {
+          title: { text: title },
+          items,
+        },
+        middleware: subMenuMiddleware,
       },
-    });
+      this.menu
+    );
   }
 
   override render() {
     const data = this.column.data$.value as any;
     const store = (this.column.view.manager.dataSource as any).doc as Store;
+    const databases = findAllDatabases(store);
     const targetDatabase = data.targetDatabaseId
       ? store.getBlock(data.targetDatabaseId)?.model
       : null;
@@ -148,21 +168,52 @@ export class RelationSettings extends SignalWatcher(
       <div
         style="display: flex; flex-direction: column; gap: 4px; padding: 4px;"
       >
-        <div
-          class="dv-hover"
-          style="display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; border-radius: 4px; cursor: pointer;"
-          @click="${this.popDatabaseSelect}"
-        >
-          <div style="display: flex; flex-direction: column; gap: 2px;">
-            <div
-              style="font-size: 10px; color: var(--affine-text-secondary-color);"
-            >
-              Relation to
-            </div>
-            <div style="font-size: 14px;">${targetDatabaseName}</div>
-          </div>
-          <uni-lit .uni="${createIcon('ArrowRightSmallIcon')}"></uni-lit>
-        </div>
+        ${this.renderSubMenuRow(
+          'Relation to',
+          targetDatabaseName,
+          'Select database',
+          [
+            menu.input({
+              initialValue: '',
+              placeholder: 'Search databases...',
+              onChange: val => {
+                this._dbSearch$.value = val;
+              },
+            }),
+            menu.group({
+              items: [
+                menu.dynamic(() => {
+                  const filter = this._dbSearch$.value.toLowerCase();
+                  return databases
+                    .filter(db =>
+                      (db.title || 'Untitled Database')
+                        .toLowerCase()
+                        .includes(filter)
+                    )
+                    .map(db =>
+                      menu.action({
+                        name: db.title || 'Untitled Database',
+                        info: db.docTitle
+                          ? html`<span
+                              style="color: var(--affine-text-secondary-color); font-size: 12px; margin-left: 8px;"
+                              >(${db.docTitle})</span
+                            >`
+                          : undefined,
+                        isSelected: db.id === data.targetDatabaseId,
+                        select: () => {
+                          this.column.dataUpdate(data => ({
+                            ...data,
+                            targetDatabaseId: db.id,
+                          }));
+                          this.menu?.close();
+                        },
+                      })
+                    );
+                }),
+              ],
+            }),
+          ]
+        )}
 
         <div
           class="dv-hover"
@@ -172,7 +223,8 @@ export class RelationSettings extends SignalWatcher(
           <div style="font-size: 14px;">Separate back-reference</div>
           <toggle-switch
             .on="${!data.isBidirectional}"
-            .onChange="${() => this.toggleBidirectional()}"
+            .onChange="${() =>
+              this.toggleBidirectional(new MouseEvent('click'))}"
           ></toggle-switch>
         </div>
       </div>
@@ -219,9 +271,18 @@ export class RelationCell extends BaseCellRenderer<string[]> {
               id => html`
                 <div
                   style="padding: 2px 6px; background: var(--affine-background-tertiary-color); border-radius: 4px; font-size: 12px; cursor: pointer;"
-                  @click="${(e: Event) => {
+                  @click="${(e: MouseEvent) => {
                     e.stopPropagation();
-                    // TODO: Navigate to block
+                    this.dispatchEvent(
+                      new CustomEvent('affine-doc-link-clicked', {
+                        detail: {
+                          pageId: (this.view.manager.dataSource as any).doc.id,
+                          blockId: id as string,
+                        },
+                        bubbles: true,
+                        composed: true,
+                      })
+                    );
                   }}"
                 >
                   ${getRowTitle(

@@ -251,12 +251,13 @@ export class LinkedDatabaseBlockDataSource extends DataSourceBase {
     id: string,
     updater: (data: ViewData) => Partial<ViewData>
   ): void {
-    const idx = this._linkedModel.props.views.findIndex(v => v.id === id);
-    if (idx === -1) return;
     this._linkedModel.store.transact(() => {
-      const current = this._linkedModel.props.views[idx]!;
-      const patch = updater(current as ViewData);
-      Object.assign(current, patch);
+      this._linkedModel.props.views = this._linkedModel.props.views.map(v => {
+        if (v.id !== id) {
+          return v;
+        }
+        return { ...v, ...updater(v as ViewData) };
+      });
     });
   }
 
@@ -285,7 +286,11 @@ export class LinkedDatabaseBlockDataSource extends DataSourceBase {
       const model = (this._source as any)['_model'] as
         | DatabaseBlockModel
         | undefined;
-      return model?.props.title.toString() ?? 'Untitled';
+      const title = model?.props.title;
+      if (!title) return 'Untitled';
+      // Accessing deltas$.value makes this computed reactive to text changes.
+      void title.deltas$.value;
+      return title.toString();
     });
   }
 }

@@ -1847,8 +1847,10 @@ __metadata:
     "@toeverything/theme": "npm:^1.1.23"
     "@types/mdast": "npm:^4.0.4"
     date-fns: "npm:^4.0.0"
+    happy-dom: "npm:^20.0.0"
     lit: "npm:^3.2.0"
     rxjs: "npm:^7.8.2"
+    vitest: "npm:^3.2.4"
     yjs: "npm:^13.6.27"
     zod: "npm:^3.25.76"
   languageName: unknown

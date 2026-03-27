@@ -7,6 +7,7 @@ import {
 import { DropIndicator } from '@blocksuite/affine-components/drop-indicator';
 import { PeekViewProvider } from '@blocksuite/affine-components/peek';
 import { toast } from '@blocksuite/affine-components/toast';
+import { RefNodeSlotsProvider } from '@blocksuite/affine-inline-reference';
 import type { DatabaseBlockModel } from '@blocksuite/affine-model';
 import { EDGELESS_TOP_CONTENTEDITABLE_SELECTOR } from '@blocksuite/affine-shared/consts';
 import {
@@ -355,6 +356,22 @@ export class DatabaseBlockComponent extends CaptionedBlockComponent<DatabaseBloc
     this.classList.add(databaseBlockStyles);
     this.listenFullWidthChange();
     this.handleMobileEditing();
+    this.handleDocLinkClick();
+  }
+
+  handleDocLinkClick() {
+    this.disposables.addFromEvent(
+      this,
+      'affine-doc-link-clicked',
+      (e: CustomEvent<{ pageId: string; blockId: string }>) => {
+        const { blockId } = e.detail;
+        this.std.getOptional(RefNodeSlotsProvider)?.docLinkClicked.next({
+          pageId: this.store.id,
+          blockId,
+          host: this.host,
+        });
+      }
+    );
   }
 
   listenFullWidthChange() {

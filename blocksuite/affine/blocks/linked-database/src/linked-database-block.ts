@@ -5,6 +5,7 @@ import {
   popupTargetFromElement,
 } from '@blocksuite/affine-components/context-menu';
 import { toast } from '@blocksuite/affine-components/toast';
+import { RefNodeSlotsProvider } from '@blocksuite/affine-inline-reference';
 import type {
   DatabaseBlockModel,
   LinkedDatabaseBlockModel,
@@ -248,6 +249,22 @@ export class LinkedDatabaseBlockComponent extends CaptionedBlockComponent<Linked
   override connectedCallback() {
     super.connectedCallback();
     this.setAttribute(RANGE_SYNC_EXCLUDE_ATTR, 'true');
+    this.handleDocLinkClick();
+  }
+
+  handleDocLinkClick() {
+    this.disposables.addFromEvent(
+      this,
+      'affine-doc-link-clicked',
+      (e: CustomEvent<{ pageId: string; blockId: string }>) => {
+        const { blockId } = e.detail;
+        this.std.getOptional(RefNodeSlotsProvider)?.docLinkClicked.next({
+          pageId: this.store.id,
+          blockId,
+          host: this.host,
+        });
+      }
+    );
   }
 
   override renderBlock() {
