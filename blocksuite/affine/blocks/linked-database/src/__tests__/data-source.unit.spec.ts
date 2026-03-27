@@ -207,7 +207,7 @@ describe('LinkedDatabaseBlockDataSource', () => {
       linkedModel.props.views.push({
         id: 'future-view',
         name: 'Future',
-        mode: 'calendar', // not registered in databaseBlockViews
+        mode: 'future-view', // not registered in databaseBlockViews
         filter: { conditions: [] },
         sort: { manuallySort: [], sortBy: [] },
         groupBy: undefined,
@@ -224,7 +224,7 @@ describe('LinkedDatabaseBlockDataSource', () => {
     test('viewMetaGet falls back to default view instead of throwing', () => {
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-      const result = ds.viewMetaGet('calendar');
+      const result = ds.viewMetaGet('future-view');
 
       // Must not throw.
       expect(result).toBeDefined();

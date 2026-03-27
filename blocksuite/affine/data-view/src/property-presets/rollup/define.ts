@@ -54,7 +54,7 @@ export const rollupPropertyModelConfig = rollupPropertyType.modelConfig({
   },
   jsonValue: {
     schema: zod.any(),
-    type: () => t.any.instance(),
+    type: () => t.unknown.instance(),
     isEmpty: ({ value }) => value == null,
   },
 });

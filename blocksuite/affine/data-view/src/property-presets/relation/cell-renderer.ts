@@ -12,7 +12,8 @@ import { html } from 'lit';
 import { property } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 
-import { renderUniLit } from '../../core/index.js';
+import '@blocksuite/affine-components/toggle-switch';
+
 import { BaseCellRenderer } from '../../core/property/index.js';
 import { createFromBaseCellRenderer } from '../../core/property/renderer.js';
 import { findAllDatabases } from '../../core/utils/database-picker.js';
@@ -96,53 +97,80 @@ export class RelationSettings extends SignalWatcher(
   @property({ attribute: false })
   accessor column!: TableProperty;
 
-  override render() {
-    const store = (this.column.view.manager.dataSource as any).doc as Store;
-    const databases = findAllDatabases(store);
-    const data = this.column.data$.value;
-    const currentTargetId = data.targetDatabaseId as string;
-    const isBidirectional = data.isBidirectional !== false;
+  private toggleBidirectional() {
+    this.column.dataUpdate(data => ({
+      ...data,
+      isBidirectional: !data.isBidirectional,
+    }));
+  }
 
-    const subMenu = menu.subMenu({
-      name: 'Related Database',
-      prefix: renderUniLit(createIcon('SearchIcon')),
+  private popDatabaseSelect(e: MouseEvent) {
+    const dataSource = this.column.view.manager.dataSource as any;
+    const store = dataSource.doc as Store;
+    if (!store) return;
+    const databases = findAllDatabases(store);
+
+    popMenu(popupTargetFromElement(e.currentTarget as HTMLElement), {
       options: {
-        title: { text: 'Select a database' },
+        title: { text: 'Select database' },
         items: databases.map(db =>
           menu.action({
-            name: db.title,
-            isSelected: db.id === currentTargetId,
+            name: db.title || 'Untitled Database',
+            isSelected: db.id === this.column.data$.value.targetDatabaseId,
             select: () => {
-              this.column.dataUpdate(d => ({
-                ...d,
+              this.column.dataUpdate(data => ({
+                ...data,
                 targetDatabaseId: db.id,
               }));
-              // Also update name if it matches the default
-              if (this.column.name$.value === 'Relation') {
-                this.column.nameSet(db.title);
-              }
             },
           })
-        ) as any,
+        ),
       },
     });
+  }
 
-    if (currentTargetId) {
-      const toggle = menu.action({
-        name: 'Show on target database',
-        isSelected: isBidirectional,
-        select: () => {
-          this.column.dataUpdate(d => ({
-            ...d,
-            isBidirectional: !isBidirectional,
-          }));
-          return false; // keep menu open
-        },
-      });
-      return menu.group({ items: [subMenu, toggle] });
-    }
+  override render() {
+    const data = this.column.data$.value as any;
+    const store = (this.column.view.manager.dataSource as any).doc as Store;
+    const targetDatabase = data.targetDatabaseId
+      ? store.getBlock(data.targetDatabaseId)?.model
+      : null;
+    const targetDatabaseName =
+      (targetDatabase as any)?.props?.title?.toString() || 'Select database';
 
-    return subMenu;
+    return html`
+      <div
+        style="display: flex; flex-direction: column; gap: 4px; padding: 4px;"
+      >
+        <div
+          class="dv-hover"
+          style="display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; border-radius: 4px; cursor: pointer;"
+          @click="${this.popDatabaseSelect}"
+        >
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <div
+              style="font-size: 10px; color: var(--affine-text-secondary-color);"
+            >
+              Relation to
+            </div>
+            <div style="font-size: 14px;">${targetDatabaseName}</div>
+          </div>
+          <uni-lit .uni="${createIcon('ArrowRightSmallIcon')}"></uni-lit>
+        </div>
+
+        <div
+          class="dv-hover"
+          style="display: flex; align-items: center; justify-content: space-between; padding: 8px; border-radius: 4px; cursor: pointer;"
+          @click="${this.toggleBidirectional}"
+        >
+          <div style="font-size: 14px;">Separate back-reference</div>
+          <toggle-switch
+            .on="${!data.isBidirectional}"
+            .onChange="${() => this.toggleBidirectional()}"
+          ></toggle-switch>
+        </div>
+      </div>
+    `;
   }
 }
 

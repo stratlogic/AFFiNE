@@ -1,8 +1,15 @@
-import { menu } from '@blocksuite/affine-components/context-menu';
+import {
+  menu,
+  popMenu,
+  popupTargetFromElement,
+} from '@blocksuite/affine-components/context-menu';
 import { SignalWatcher, WithDisposable } from '@blocksuite/global/lit';
 import { ShadowlessElement } from '@blocksuite/std';
+import type { Store } from '@blocksuite/store';
 import { html } from 'lit';
 import { property } from 'lit/decorators.js';
+
+import '@blocksuite/affine-components/toggle-switch';
 
 import { BaseCellRenderer } from '../../core/property/index.js';
 import { createFromBaseCellRenderer } from '../../core/property/renderer.js';
@@ -17,91 +24,68 @@ export class RollupSettings extends SignalWatcher(
   @property({ attribute: false })
   accessor column!: TableProperty;
 
+  private popMenu(
+    name: string,
+    items: any[],
+    e: MouseEvent,
+    title?: string
+  ) {
+    popMenu(popupTargetFromElement(e.currentTarget as HTMLElement), {
+      options: {
+        title: title ? { text: title } : undefined,
+        items,
+      },
+    });
+  }
+
   override render() {
     const data = this.column.data$.value as any;
     const relationPropertyId = data.relationPropertyId;
     const targetPropertyId = data.targetPropertyId;
     const calculation = data.calculation;
 
-    const dataSource = this.column.view.manager.dataSource as any;
-    const allColumns = (dataSource._model?.props?.columns || []) as any[];
-    const relationColumns = allColumns.filter(col => col.type === 'relation');
+    const dataSource = this.column.view.manager.dataSource;
+    const propertyIds = dataSource.properties$.value;
+    const relationColumns = propertyIds
+      .filter(id => dataSource.propertyTypeGet(id) === 'relation')
+      .map(id => ({
+        id,
+        name: dataSource.propertyNameGet(id),
+      }));
 
     if (relationColumns.length === 0) {
-      return menu.group({
-        items: [
-          menu.action({
-            name: 'No relation columns found',
-            prefix: createIcon('InfoIcon'),
-            select: () => false,
-          }),
-        ],
-      });
+      return html`
+        <div style="padding: 8px; color: var(--affine-text-secondary-color);">
+          No relation columns found
+        </div>
+      `;
     }
 
-    // Step 1: Select Relation
-    const relationMenu = menu.subMenu({
-      name: 'Relation',
-      prefix: createIcon('LinkIcon'),
-      options: {
-        title: { text: 'Select a relation' },
-        items: relationColumns.map(col =>
-          menu.action({
-            name: col.name || col.id,
-            isSelected: col.id === relationPropertyId,
-            select: () => {
-              this.column.dataUpdate(d => ({
-                ...d,
-                relationPropertyId: col.id,
-                targetPropertyId: '',
-              }));
-            },
-          })
-        ),
-      },
-    });
+    const selectedRelation = relationColumns.find(
+      col => col.id === relationPropertyId
+    );
+    const relationName = selectedRelation?.name || 'Select relation';
 
-    // Step 2: Select Target Property
-    let targetPropertyMenu = null;
-    let targetType = '';
+    // Target Properties
+    let targetColumns: any[] = [];
     if (relationPropertyId) {
-      const relationCol = allColumns.find(col => col.id === relationPropertyId);
-      const targetDbId = relationCol?.data?.targetDatabaseId;
-      if (targetDbId) {
-        const targetDb = dataSource.doc.getBlock(targetDbId)?.model;
+      const relationData = dataSource.propertyDataGet(relationPropertyId) as any;
+      const targetDbId = relationData?.targetDatabaseId;
+      const store = (dataSource as any).doc as Store;
+      if (targetDbId && store) {
+        const targetDb = store.getBlock(targetDbId)?.model as any;
         if (targetDb) {
-          const targetColumns = (targetDb.props.columns || []) as any[];
-          const selectedTargetCol = targetColumns.find(
-            col => col.id === targetPropertyId
+          targetColumns = (targetDb.props.columns || []).filter(
+            (col: any) => col.type !== 'rollup'
           );
-          targetType = selectedTargetCol?.type || '';
-
-          targetPropertyMenu = menu.subMenu({
-            name: 'Property',
-            prefix: createIcon('SearchIcon'),
-            options: {
-              title: { text: 'Select a property' },
-              items: targetColumns
-                .filter(col => col.type !== 'rollup')
-                .map(col =>
-                  menu.action({
-                    name: col.name || col.id,
-                    isSelected: col.id === targetPropertyId,
-                    select: () => {
-                      this.column.dataUpdate(d => ({
-                        ...d,
-                        targetPropertyId: col.id,
-                      }));
-                    },
-                  })
-                ),
-            },
-          });
         }
       }
     }
+    const selectedTarget = targetColumns.find(col => col.id === targetPropertyId);
+    const targetName = selectedTarget?.name || 'Select property';
+    const targetType = selectedTarget?.type || '';
 
-    // Step 3: Select Calculation
+    // Calculations
     const allowedCalculations = [
       'count_all',
       'count_values',
@@ -110,40 +94,124 @@ export class RollupSettings extends SignalWatcher(
       'count_not_empty',
       'show_original',
     ];
-
     if (targetType === 'number' || targetType === 'progress') {
       allowedCalculations.push('sum', 'average', 'min', 'max');
     } else if (targetType === 'date') {
       allowedCalculations.push('earliest', 'latest');
     }
 
-    const calculationMenu = menu.subMenu({
-      name: 'Calculate',
-      prefix: createIcon('SettingsIcon'),
-      options: {
-        title: { text: 'Select calculation' },
-        items: allowedCalculations.map(calc =>
-          menu.action({
-            name: calc.replace(/_/g, ' '),
-            isSelected: calc === calculation,
-            select: () => {
-              this.column.dataUpdate(d => ({
-                ...d,
-                calculation: calc,
-              }));
-            },
-          })
-        ),
-      },
-    });
+    return html`
+      <div
+        style="display: flex; flex-direction: column; gap: 4px; padding: 4px;"
+      >
+        <!-- Relation -->
+        <div
+          class="dv-hover"
+          style="display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; border-radius: 4px; cursor: pointer;"
+          @click="${(e: MouseEvent) =>
+            this.popMenu(
+              'Relation',
+              relationColumns.map(col =>
+                menu.action({
+                  name: col.name || col.id,
+                  isSelected: col.id === relationPropertyId,
+                  select: () => {
+                    this.column.dataUpdate(d => ({
+                      ...d,
+                      relationPropertyId: col.id,
+                      targetPropertyId: '',
+                    }));
+                  },
+                })
+              ),
+              e,
+              'Select a relation'
+            )}"
+        >
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <div
+              style="font-size: 10px; color: var(--affine-text-secondary-color);"
+            >
+              Relation
+            </div>
+            <div style="font-size: 14px;">${relationName}</div>
+          </div>
+          <uni-lit .uni="${createIcon('ArrowRightSmallIcon')}"></uni-lit>
+        </div>
 
-    const items = [relationMenu];
-    if (targetPropertyMenu) {
-      items.push(targetPropertyMenu);
-    }
-    items.push(calculationMenu);
+        <!-- Property -->
+        <div
+          class="dv-hover"
+          style="display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; border-radius: 4px; cursor: pointer; ${!relationPropertyId
+            ? 'opacity: 0.5; pointer-events: none;'
+            : ''}"
+          @click="${(e: MouseEvent) =>
+            this.popMenu(
+              'Property',
+              targetColumns.map(col =>
+                menu.action({
+                  name: col.name || col.id,
+                  isSelected: col.id === targetPropertyId,
+                  select: () => {
+                    this.column.dataUpdate(d => ({
+                      ...d,
+                      targetPropertyId: col.id,
+                    }));
+                  },
+                })
+              ),
+              e,
+              'Select a property'
+            )}"
+        >
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <div
+              style="font-size: 10px; color: var(--affine-text-secondary-color);"
+            >
+              Property
+            </div>
+            <div style="font-size: 14px;">${targetName}</div>
+          </div>
+          <uni-lit .uni="${createIcon('ArrowRightSmallIcon')}"></uni-lit>
+        </div>
 
-    return menu.group({ items });
+        <!-- Calculation -->
+        <div
+          class="dv-hover"
+          style="display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; border-radius: 4px; cursor: pointer; ${!targetPropertyId
+            ? 'opacity: 0.5; pointer-events: none;'
+            : ''}"
+          @click="${(e: MouseEvent) =>
+            this.popMenu(
+              'Calculate',
+              allowedCalculations.map(calc =>
+                menu.action({
+                  name: calc.replace(/_/g, ' '),
+                  isSelected: calc === calculation,
+                  select: () => {
+                    this.column.dataUpdate(d => ({
+                      ...d,
+                      calculation: calc,
+                    }));
+                  },
+                })
+              ),
+              e,
+              'Select calculation'
+            )}"
+        >
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <div
+              style="font-size: 10px; color: var(--affine-text-secondary-color);"
+            >
+              Calculate
+            </div>
+            <div style="font-size: 14px;">${calculation.replace(/_/g, ' ')}</div>
+          </div>
+          <uni-lit .uni="${createIcon('ArrowRightSmallIcon')}"></uni-lit>
+        </div>
+      </div>
+    `;
   }
 }
 
