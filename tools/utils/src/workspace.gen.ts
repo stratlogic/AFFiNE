@@ -306,6 +306,7 @@ export const PackageList = [
       'blocksuite/affine/blocks/database',
       'blocksuite/affine/components',
       'blocksuite/affine/ext-loader',
+      'blocksuite/affine/inlines/reference',
       'blocksuite/affine/model',
       'blocksuite/affine/shared',
       'blocksuite/affine/widgets/slash-menu',
