@@ -90,6 +90,9 @@ export class DatabaseHeaderColumn extends SignalWatcher(
             prefix: renderUniLit(config.renderer.icon),
             select: () => {
               this.column.typeSet?.(config.type);
+              if (config.type === 'relation' || config.type === 'rollup') {
+                return false;
+              }
             },
           });
         }),
@@ -215,6 +218,7 @@ export class DatabaseHeaderColumn extends SignalWatcher(
             name: 'Number Format',
             hide: () =>
               !this.column.dataUpdate || this.column.type$.value !== 'number',
+            closeOnSelect: true,
             options: {
               items: [
                 numberFormatConfig(this.column),

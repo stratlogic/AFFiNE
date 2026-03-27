@@ -1,3 +1,5 @@
+import '@blocksuite/affine-components/toggle-switch';
+
 import {
   menu,
   popMenu,
@@ -11,8 +13,6 @@ import { signal } from '@preact/signals-core';
 import { html } from 'lit';
 import { property } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
-
-import '@blocksuite/affine-components/toggle-switch';
 
 import { BaseCellRenderer } from '../../core/property/index.js';
 import { createFromBaseCellRenderer } from '../../core/property/renderer.js';
@@ -97,7 +97,11 @@ export class RelationSettings extends SignalWatcher(
   @property({ attribute: false })
   accessor column!: TableProperty;
 
-  private toggleBidirectional() {
+  @property({ attribute: false })
+  accessor menu!: any;
+
+  private toggleBidirectional(e: MouseEvent) {
+    e.stopPropagation();
     this.column.dataUpdate(data => ({
       ...data,
       isBidirectional: !data.isBidirectional,
@@ -105,6 +109,7 @@ export class RelationSettings extends SignalWatcher(
   }
 
   private popDatabaseSelect(e: MouseEvent) {
+    e.stopPropagation();
     const dataSource = this.column.view.manager.dataSource as any;
     const store = dataSource.doc as Store;
     if (!store) return;
@@ -122,6 +127,7 @@ export class RelationSettings extends SignalWatcher(
                 ...data,
                 targetDatabaseId: db.id,
               }));
+              this.menu?.close();
             },
           })
         ),

@@ -1,3 +1,5 @@
+import '@blocksuite/affine-components/toggle-switch';
+
 import {
   menu,
   popMenu,
@@ -8,8 +10,6 @@ import { ShadowlessElement } from '@blocksuite/std';
 import type { Store } from '@blocksuite/store';
 import { html } from 'lit';
 import { property } from 'lit/decorators.js';
-
-import '@blocksuite/affine-components/toggle-switch';
 
 import { BaseCellRenderer } from '../../core/property/index.js';
 import { createFromBaseCellRenderer } from '../../core/property/renderer.js';
@@ -24,12 +24,11 @@ export class RollupSettings extends SignalWatcher(
   @property({ attribute: false })
   accessor column!: TableProperty;
 
-  private popMenu(
-    name: string,
-    items: any[],
-    e: MouseEvent,
-    title?: string
-  ) {
+  @property({ attribute: false })
+  accessor menu!: any;
+
+  private popMenu(items: any[], e: MouseEvent, title?: string) {
+    e.stopPropagation();
     popMenu(popupTargetFromElement(e.currentTarget as HTMLElement), {
       options: {
         title: title ? { text: title } : undefined,
@@ -42,7 +41,7 @@ export class RollupSettings extends SignalWatcher(
     const data = this.column.data$.value as any;
     const relationPropertyId = data.relationPropertyId;
     const targetPropertyId = data.targetPropertyId;
-    const calculation = data.calculation;
+    const calculation = data.calculation || 'show_original';
 
     const dataSource = this.column.view.manager.dataSource;
     const propertyIds = dataSource.properties$.value;
@@ -69,7 +68,9 @@ export class RollupSettings extends SignalWatcher(
     // Target Properties
     let targetColumns: any[] = [];
     if (relationPropertyId) {
-      const relationData = dataSource.propertyDataGet(relationPropertyId) as any;
+      const relationData = dataSource.propertyDataGet(
+        relationPropertyId
+      ) as any;
       const targetDbId = relationData?.targetDatabaseId;
       const store = (dataSource as any).doc as Store;
       if (targetDbId && store) {
@@ -81,7 +82,9 @@ export class RollupSettings extends SignalWatcher(
         }
       }
     }
-    const selectedTarget = targetColumns.find(col => col.id === targetPropertyId);
+    const selectedTarget = targetColumns.find(
+      col => col.id === targetPropertyId
+    );
     const targetName = selectedTarget?.name || 'Select property';
     const targetType = selectedTarget?.type || '';
 
@@ -110,7 +113,6 @@ export class RollupSettings extends SignalWatcher(
           style="display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; border-radius: 4px; cursor: pointer;"
           @click="${(e: MouseEvent) =>
             this.popMenu(
-              'Relation',
               relationColumns.map(col =>
                 menu.action({
                   name: col.name || col.id,
@@ -147,7 +149,6 @@ export class RollupSettings extends SignalWatcher(
             : ''}"
           @click="${(e: MouseEvent) =>
             this.popMenu(
-              'Property',
               targetColumns.map(col =>
                 menu.action({
                   name: col.name || col.id,
@@ -157,6 +158,7 @@ export class RollupSettings extends SignalWatcher(
                       ...d,
                       targetPropertyId: col.id,
                     }));
+                    this.menu?.close();
                   },
                 })
               ),
@@ -183,7 +185,6 @@ export class RollupSettings extends SignalWatcher(
             : ''}"
           @click="${(e: MouseEvent) =>
             this.popMenu(
-              'Calculate',
               allowedCalculations.map(calc =>
                 menu.action({
                   name: calc.replace(/_/g, ' '),
@@ -193,6 +194,7 @@ export class RollupSettings extends SignalWatcher(
                       ...d,
                       calculation: calc,
                     }));
+                    this.menu?.close();
                   },
                 })
               ),
@@ -206,7 +208,11 @@ export class RollupSettings extends SignalWatcher(
             >
               Calculate
             </div>
-            <div style="font-size: 14px;">${calculation.replace(/_/g, ' ')}</div>
+            <div style="font-size: 14px;">
+              ${calculation
+                ? calculation.replace(/_/g, ' ')
+                : 'Select calculation'}
+            </div>
           </div>
           <uni-lit .uni="${createIcon('ArrowRightSmallIcon')}"></uni-lit>
         </div>

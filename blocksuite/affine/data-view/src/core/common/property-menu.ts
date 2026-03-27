@@ -24,6 +24,7 @@ export const typeConfig = (property: Property) => {
       menu.subMenu({
         name: 'Type',
         hide: () => !property.typeCanSet,
+        closeOnSelect: true,
         postfix: html` <div
           class="affine-database-column-type-icon"
           style="color: var(--affine-text-secondary-color);gap:4px;font-size: 14px;"
@@ -45,10 +46,14 @@ export const typeConfig = (property: Property) => {
                   name: config.config.name,
                   prefix: renderUniLit(config.renderer.icon),
                   select: () => {
-                    if (property.type$.value === config.type) {
-                      return;
-                    }
                     property.typeSet?.(config.type);
+                    if (
+                      config.type === 'relation' ||
+                      config.type === 'rollup'
+                    ) {
+                      return false;
+                    }
+                    return;
                   },
                 });
               }),

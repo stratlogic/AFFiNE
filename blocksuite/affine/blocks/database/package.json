@@ -47,5 +47,9 @@
     "!src/__tests__",
     "!dist/__tests__"
   ],
-  "version": "0.26.3"
+  "version": "0.26.3",
+  "devDependencies": {
+    "happy-dom": "^20.0.0",
+    "vitest": "^3.2.4"
+  }
 }
