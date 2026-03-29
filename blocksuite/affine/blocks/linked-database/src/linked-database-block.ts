@@ -257,10 +257,10 @@ export class LinkedDatabaseBlockComponent extends CaptionedBlockComponent<Linked
       this,
       'affine-doc-link-clicked',
       (e: CustomEvent<{ pageId: string; blockId: string }>) => {
-        const { blockId } = e.detail;
+        const { pageId, blockId } = e.detail;
         this.std.getOptional(RefNodeSlotsProvider)?.docLinkClicked.next({
-          pageId: this.store.id,
-          blockId,
+          pageId,
+          params: { blockIds: [blockId] },
           host: this.host,
         });
       }

@@ -1816,8 +1816,11 @@ __metadata:
     "@preact/signals-core": "npm:^1.8.0"
     "@toeverything/theme": "npm:^1.1.23"
     "@types/mdast": "npm:^4.0.4"
+    "@vanilla-extract/vite-plugin": "npm:^5.0.0"
+    happy-dom: "npm:^20.0.0"
     lit: "npm:^3.2.0"
     rxjs: "npm:^7.8.2"
+    vitest: "npm:^3.2.4"
     zod: "npm:^3.25.76"
   languageName: unknown
   linkType: soft
@@ -2273,6 +2276,7 @@ __metadata:
   resolution: "@blocksuite/affine-block-table@workspace:blocksuite/affine/blocks/table"
   dependencies:
     "@atlaskit/pragmatic-drag-and-drop": "npm:^1.7.7"
+    "@blocksuite/affine-block-database": "workspace:*"
     "@blocksuite/affine-components": "workspace:*"
     "@blocksuite/affine-ext-loader": "workspace:*"
     "@blocksuite/affine-inline-preset": "workspace:*"

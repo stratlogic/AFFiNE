@@ -3,7 +3,8 @@
   "description": "Data view block for BlockSuite.",
   "type": "module",
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "test": "vitest run"
   },
   "sideEffects": false,
   "keywords": [],
@@ -41,5 +42,10 @@
     "!src/__tests__",
     "!dist/__tests__"
   ],
-  "version": "0.26.3"
+  "version": "0.26.3",
+  "devDependencies": {
+    "@vanilla-extract/vite-plugin": "^5.0.0",
+    "happy-dom": "^20.0.0",
+    "vitest": "^3.2.4"
+  }
 }
