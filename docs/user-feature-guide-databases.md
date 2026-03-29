@@ -3,9 +3,11 @@
 This guide covers the new relational and linked database features in AFFiNE. These tools allow you to connect data across different tables and create dynamic views of your information.
 
 ## 1. Relation Property
+
 The **Relation** property allows you to link rows from one database to another database (within the same page/document).
 
 ### How to use:
+
 1. Click the **+** button in your database header to add a new column.
 2. Select **Relation** from the property type menu.
 3. In the configuration panel, click **Select a database**.
@@ -16,9 +18,11 @@ The **Relation** property allows you to link rows from one database to another d
 ---
 
 ## 2. Rollup Property
+
 The **Rollup** property aggregates data from related rows. For example, if you have a "Tasks" database related to a "Projects" database, you can use a Rollup to "Sum" the "Total Hours" of all tasks for a project.
 
 ### How to use:
+
 1. Ensure you have at least one **Relation** property already set up.
 2. Add a new column and select **Rollup**.
 3. **Relation:** Choose which relation property to pull data from.
@@ -28,9 +32,11 @@ The **Rollup** property aggregates data from related rows. For example, if you h
 ---
 
 ## 3. Linked Database View
+
 A **Linked Database** allows you to show a view of an existing database elsewhere on your page. Changes made to the data in a linked view will update the source database immediately.
 
 ### How to use:
+
 1. Type `/linked` in any blank line of your document.
 2. Select **Linked view of database** from the slash menu.
 3. Choose the source database you want to display.
@@ -40,7 +46,14 @@ A **Linked Database** allows you to show a view of an existing database elsewher
 
 ---
 
+## 4. Table vs database vs simple table
+
+- **Table (slash / keyboard):** Inserts a full **database** in **table view** — use this when you want **Relation**, **Rollup**, **linked views**, and multiple view types later.
+- **Simple table (slash):** Inserts the legacy **grid** block. Use it for a lightweight layout-only grid. You can **Upgrade to database table** from the banner above the grid when you need database features.
+- **Existing simple tables** keep working; conversion is optional and replaces the block with a database (confirm first).
+
 ## Important Constraints
+
 - **Doc-Local Scope:** Currently, relations and linked views only work with databases located on the **same page**.
 - **Bidirectional Sync:** If you delete a bidirectional relation column, the counterpart column in the related database will also be removed.
 - **Rollup Calculations:** Some calculations (like Sum or Average) only appear if the target property is a Number type.

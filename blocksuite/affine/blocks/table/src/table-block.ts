@@ -1,3 +1,4 @@
+import { migrateTableBlockToDatabase } from '@blocksuite/affine-block-database';
 import { CaptionedBlockComponent } from '@blocksuite/affine-components/caption';
 import type { TableBlockModel } from '@blocksuite/affine-model';
 import { EDGELESS_TOP_CONTENTEDITABLE_SELECTOR } from '@blocksuite/affine-shared/consts';
@@ -17,6 +18,7 @@ import {
   rowStyle,
   table,
   tableContainer,
+  tableUpgradeBanner,
   tableWrapper,
 } from './table-block-css';
 import { TableDataManager } from './table-data-manager';
@@ -96,6 +98,17 @@ export class TableBlockComponent extends CaptionedBlockComponent<TableBlockModel
     };
   };
 
+  private readonly _upgradeToDatabase = () => {
+    if (this.store.readonly) return;
+    const ok = window.confirm(
+      'Upgrade this grid to a database table? You can use relations, rollups, and linked views. This cannot be undone.'
+    );
+    if (!ok) return;
+    const id = this.model.id;
+    this.store.captureSync();
+    migrateTableBlockToDatabase(this.store, id);
+  };
+
   private readonly getAreaRect = (
     rowStartIndex: number,
     rowEndIndex: number,
@@ -131,6 +144,16 @@ export class TableBlockComponent extends CaptionedBlockComponent<TableBlockModel
     const columns = this.dataManager.uiColumns$.value;
     const virtualPadding = this.virtualPaddingController.virtualPadding$.value;
     return html`
+      ${!this.store.readonly
+        ? html`
+            <div class=${tableUpgradeBanner} contenteditable="false">
+              <span>Need relations, rollups, or linked views?</span>
+              <button type="button" @click=${this._upgradeToDatabase}>
+                Upgrade to database table
+              </button>
+            </div>
+          `
+        : nothing}
       <div
         contenteditable="false"
         class=${tableContainer}
