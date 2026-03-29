@@ -61,7 +61,7 @@ When the **To-do list** (workspace query) block is shown as a table, you can add
 - **Optional back-reference:** You can enable the reverse link on the target database; reverse columns store **query row block ids** (see the short note in the relation settings when configuring from a query view).
 - If a to-do **leaves** the query (e.g. type changes), linked data in the query view **may still be stored** on that block id even when the row no longer appears in the view—until you edit or clear the cell.
 
-For deeper product constraints and file-level references, see [affine-notion/data-view-block-relation-spike.md](./affine-notion/data-view-block-relation-spike.md).
+For deeper product constraints and file-level references, see [affine-notion/data-view-block-relation-spike.md](./affine-notion/data-view-block-relation-spike.md). Contributor-facing verification and follow-up work (tests, Phase D) are tracked in [affine-notion/implementation_plan.md](./affine-notion/implementation_plan.md) and [affine-notion/table_database_unify_task_tracker.md](./affine-notion/table_database_unify_task_tracker.md).
 
 ## Important Constraints
 

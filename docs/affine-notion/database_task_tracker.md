@@ -4,7 +4,7 @@
 > **Last Updated:** 2026-03-29
 > **Status Legend:** ⬜ Not Started · 🔵 In Progress · ✅ Done · ⛔ Blocked · 🟡 Needs Review
 >
-> **Related:** Workspace **query views** (`affine:data-view` / `BlockQueryDataSource`) reuse the same Relation and Rollup property presets with constraints documented in [data-view-block-relation-spike.md](./data-view-block-relation-spike.md) and the [table database unification tracker](./table_database_unify_task_tracker.md) (Phase E).
+> **Related:** Workspace **query views** (`affine:data-view` / `BlockQueryDataSource`) reuse the same Relation and Rollup property presets with constraints documented in [data-view-block-relation-spike.md](./data-view-block-relation-spike.md) and the [table database unification tracker](./table_database_unify_task_tracker.md) (Phase E). Relation chip navigation uses `docLinkClicked` with `params.blockIds` (see [implementation_plan.md](./implementation_plan.md) Workstream B). `BlockQueryDataSource` tests: `yarn workspace @blocksuite/affine-block-data-view test`.
 
 ---
 

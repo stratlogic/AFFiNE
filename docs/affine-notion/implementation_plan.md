@@ -1,47 +1,49 @@
 # Post–Phase E follow-ups — implementation plan
 
+> **Last updated:** 2026-03-29  
 > **Scope:** Hardening after Phase E (`affine:data-view` relations / `BlockQueryDataSource`), database package hygiene, and deferred Phase D product decisions.  
 > **Tracker:** [table_database_unify_task_tracker.md](./table_database_unify_task_tracker.md)  
 > **Design reference:** [data-view-block-relation-spike.md](./data-view-block-relation-spike.md)
+
+**Status (engineering):** Workstream **B** (doc-link payload vs `DocLinkClickedEvent`) is **done**. Workstream **A** is **partially done**: Vitest in `@blocksuite/affine-block-data-view` uses `@vanilla-extract/vite-plugin`; import smoke + bidirectional relation sync tests exist; optional **rollup-only** scenario and **decoupling** `viewConverts` from `data-source.ts` remain. Workstream **C** (Phase D) still **product-owned**.
 
 ---
 
 ## Purpose
 
-Stabilize and verify the table/database unification track after Phase E ships: close the **integration-test gap** for `BlockQueryDataSource`, resolve **typecheck / payload-shape** issues around doc-link navigation, and execute **Phase D** only after explicit product decisions.
+Stabilize and verify the table/database unification track after Phase E ships: keep **integration coverage** for `BlockQueryDataSource` honest, maintain **typecheck** and **navigation** invariants for doc links, and execute **Phase D** only after explicit product decisions.
 
-**Out of scope for this plan:** New relation or rollup features unless they unblock tests or CI.
+**Out of scope for this plan:** New relation or rollup product features unless they unblock tests or CI.
 
 ---
 
 ## Success criteria
 
-- **A:** `BlockQueryDataSource` relation and rollup behavior is covered by an **integration-level** test strategy (Vitest-safe import path, or documented E2E substitute) with a clear verification command.
-- **B:** `tsc --noEmit -p blocksuite/affine/blocks/database` (or equivalent Nx target) passes; `affine-doc-link-clicked` and `DocLinkClickedEvent` are aligned without breaking navigable payloads for subscribers.
-- **C:** Phase D rows in the unification tracker have **owner, decision, and target** (or are explicitly deferred).
+- **A:** `BlockQueryDataSource` has a **repeatable** test command and coverage for **relation** paths; **rollup** recomputation under Vitest is optional but desirable ([Workstream A](#workstream-a-blockquerydatasource-integration-tests)).
+- **B:** `tsc --noEmit -p blocksuite/affine/blocks/database` passes; `docLinkClicked.next` payloads match `ReferenceInfo` (`params.blockIds` where applicable). **Met.**
+- **C:** Phase D rows in the unification tracker have **owner, decision, and target** (or stay explicitly deferred).
 
 ---
 
 ## Context (repo facts)
 
-### Integration test gap
+### Integration tests and vanilla-extract
 
-- [`blocksuite/affine/blocks/data-view/src/data-source.ts`](../../blocksuite/affine/blocks/data-view/src/data-source.ts) imports `viewConverts` from `@blocksuite/data-view/view-presets`. View-presets pulls in UI modules and **vanilla-extract** `*.css.ts` files, which **breaks Vitest** when specs import `BlockQueryDataSource` directly.
-- Current coverage is **narrow**: [`relation-container-data-view.unit.spec.ts`](../../blocksuite/affine/blocks/database/src/__tests__/relation-container-data-view.unit.spec.ts) only tests [`relation-container-cells.ts`](../../blocksuite/affine/blocks/database/src/utils/relation-container-cells.ts) with mocked `affine:data-view` shapes—not the full `BlockQueryDataSource` lifecycle.
+- [`blocksuite/affine/blocks/data-view/src/data-source.ts`](../../blocksuite/affine/blocks/data-view/src/data-source.ts) still imports `viewConverts` from `@blocksuite/data-view/view-presets` (heavy graph including **vanilla-extract** `*.css.ts`).
+- **Without** the package’s Vitest config plugin, importing `BlockQueryDataSource` in tests typically **fails**. **Mitigation in repo:** [`vitest.config.ts`](../../blocksuite/affine/blocks/data-view/vitest.config.ts) in `@blocksuite/affine-block-data-view` adds `@vanilla-extract/vite-plugin`. Run: `yarn workspace @blocksuite/affine-block-data-view test`.
+- **Coverage layers:**
+  - [`relation-container-data-view.unit.spec.ts`](../../blocksuite/affine/blocks/database/src/__tests__/relation-container-data-view.unit.spec.ts) — mocked `affine:data-view` containers → [`relation-container-cells.ts`](../../blocksuite/affine/blocks/database/src/utils/relation-container-cells.ts).
+  - [`block-query-data-source-import.unit.spec.ts`](../../blocksuite/affine/blocks/data-view/src/__tests__/block-query-data-source-import.unit.spec.ts) — module load / class smoke.
+  - [`block-query-data-source-relation.unit.spec.ts`](../../blocksuite/affine/blocks/data-view/src/__tests__/block-query-data-source-relation.unit.spec.ts) — `TestWorkspace` + todo query rows + bidirectional relation → reverse cell on target database.
 
-### Typecheck / `DocLinkClickedEvent`
+### Doc links and `DocLinkClickedEvent` (resolved)
 
 - [`DocLinkClickedEvent`](../../blocksuite/affine/inlines/reference/src/reference-node/types.ts) is `ReferenceInfo & { openMode?; event?; host }`.
 - [`ReferenceInfo`](../../blocksuite/affine/model/src/consts/doc.ts) uses `pageId` and optional `params` (e.g. `params.blockIds`), not a top-level `blockId`.
-- [`database-block.ts`](../../blocksuite/affine/blocks/database/src/database-block.ts) handles `affine-doc-link-clicked` with `CustomEvent<{ pageId: string; blockId: string }>` and calls `docLinkClicked.next({ pageId, blockId, host })`—that shape diverges from `DocLinkClickedEvent`.
-- Relation UI dispatches the same pattern: [`relation/cell-renderer.ts`](../../blocksuite/affine/data-view/src/property-presets/relation/cell-renderer.ts) uses `detail: { pageId, blockId }`.
+- **DOM:** [`relation/cell-renderer.ts`](../../blocksuite/affine/data-view/src/property-presets/relation/cell-renderer.ts) may still dispatch `affine-doc-link-clicked` with `detail: { pageId, blockId }` (fine for a `CustomEvent`).
+- **Rx:** [`database-block.ts`](../../blocksuite/affine/blocks/database/src/database-block.ts) and [`linked-database-block.ts`](../../blocksuite/affine/blocks/linked-database/src/linked-database-block.ts) bridge to `docLinkClicked.next({ pageId, params: { blockIds: [blockId] }, host })` so **TypeScript and app subscribers** (e.g. share page `jumpToPageBlock`) see `params.blockIds`.
 
-**When executing:** Confirm failures with `npx tsc --noEmit -p blocksuite/affine/blocks/database` (or workspace convention). Then either **map** `blockId` → `params: { blockIds: [blockId] }` at `next(...)` call sites, **widen** types only if product requires both shapes (less ideal), or **standardize** the `CustomEvent` detail type. Affected call sites to audit include:
-
-- `database-block.ts`
-- `linked-database-block.ts`
-- `data-view` relation `cell-renderer.ts`
-- Any subscribers that assume a single block id (e.g. [`playground` starter](../../blocksuite/playground/apps/starter/utils/extensions.ts))
+**Subscribers** that only use `pageId` (e.g. [`playground` starter](../../blocksuite/playground/apps/starter/utils/extensions.ts)) remain valid.
 
 ### Phase D (product / policy)
 
@@ -86,7 +88,7 @@ flowchart LR
 
 | Step    | Action                                                                                                                                                                                                                                                                                        |
 | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **B.1** | Run `tsc --noEmit -p blocksuite/affine/blocks/database` (or Nx equivalent). Record failures in tracker appendix or issue when executing.                                                                                                                                                      |
+| **B.1** | Run `tsc --noEmit -p blocksuite/affine/blocks/database` (or Nx equivalent). Re-run after doc-link changes; record any new failures in an issue.                                                                                                                                               |
 | **B.2** | Normalize `affine-doc-link-clicked` detail vs `DocLinkClickedEvent` (see context above).                                                                                                                                                                                                      |
 | **B.3** | **Regression:** Subscribers of `RefNodeSlotsProvider.docLinkClicked` still receive a navigable payload; validate playground and app-level handlers. **Done:** `docLinkClicked.next` now passes `params: { blockIds: [...] }` per `ReferenceInfo` (`database-block`, `linked-database-block`). |
 
@@ -111,20 +113,21 @@ flowchart LR
 
 ## Risks
 
-| Risk                                                 | Mitigation                                                                            |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| Decoupling view-presets touches many exports         | Time-box spike; prefer contract tests if decouple is large.                           |
-| Vitest remains blocked for full `data-source` import | Fall back to E2E + narrow unit tests; document in tracker.                            |
-| Changing `docLinkClicked` payload breaks integrators | Coordinate with consumers; prefer mapping at emit site over changing `ReferenceInfo`. |
+| Risk                                                 | Mitigation                                                                                                     |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Decoupling view-presets touches many exports         | Time-box spike; prefer keeping VE Vitest plugin in `affine-block-data-view` unless bundle/size requires split. |
+| Vitest remains blocked for full `data-source` import | Ensure `@vanilla-extract/vite-plugin` is in that package’s Vitest config; otherwise E2E.                       |
+| Changing `docLinkClicked` payload breaks integrators | Coordinate with consumers; prefer mapping at emit site over changing `ReferenceInfo`.                          |
 
 ---
 
 ## Related files (quick index)
 
-| Area                               | Path                                                                                        |
-| ---------------------------------- | ------------------------------------------------------------------------------------------- |
-| `BlockQueryDataSource`             | `blocksuite/affine/blocks/data-view/src/data-source.ts`                                     |
-| View converts entry                | `@blocksuite/data-view/view-presets`                                                        |
-| Relation container helpers         | `blocksuite/affine/blocks/database/src/utils/relation-container-cells.ts`                   |
-| Data-view relation tests (current) | `blocksuite/affine/blocks/database/src/__tests__/relation-container-data-view.unit.spec.ts` |
-| Doc link handler                   | `blocksuite/affine/blocks/database/src/database-block.ts`                                   |
+| Area                                       | Path                                                                                                          |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `BlockQueryDataSource`                     | `blocksuite/affine/blocks/data-view/src/data-source.ts`                                                       |
+| View converts entry                        | `@blocksuite/data-view/view-presets`                                                                          |
+| Relation container helpers                 | `blocksuite/affine/blocks/database/src/utils/relation-container-cells.ts`                                     |
+| Data-view relation tests (mock containers) | `blocksuite/affine/blocks/database/src/__tests__/relation-container-data-view.unit.spec.ts`                   |
+| `BlockQueryDataSource` Vitest (VE)         | `blocksuite/affine/blocks/data-view/src/__tests__/block-query-data-source-*.unit.spec.ts`, `vitest.config.ts` |
+| Doc link handler                           | `blocksuite/affine/blocks/database/src/database-block.ts`, `linked-database/src/linked-database-block.ts`     |

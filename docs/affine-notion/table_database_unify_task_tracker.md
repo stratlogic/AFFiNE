@@ -1,7 +1,7 @@
 # Table ↔ Database unification — Task tracker
 
 > **Source plan:** `.cursor/plans/unify_table_with_database_2b02f92b.plan.md` (do not edit when executing)
-> **Last Updated:** 2026-03-29 (Post–Phase E: doc-link types + BlockQueryDataSource vitests + tracker D.)
+> **Last Updated:** 2026-03-29 (Doc sweep: handoff commands + cross-links)
 > **Status:** ⬜ Not Started · 🔵 In Progress · ✅ Done · ⛔ Blocked
 
 ---
@@ -21,11 +21,11 @@
 1. From repo root: `pnpm test --run` (or `yarn test --run`).
 2. If touching database/table/data-view query: include `blocksuite/affine/blocks/database/src/__tests__/` (e.g. `relation-sync.unit.spec.ts`, `relation-container-data-view.unit.spec.ts`) and `blocksuite/affine/blocks/linked-database/src/__tests__/`.
 3. Typecheck affected packages (Nx or `tsc -b` per workspace convention).
-4. `BlockQueryDataSource` Vitest (vanilla-extract): `yarn workspace @blocksuite/affine-block-data-view vitest run` (from repo root), or `cd blocksuite/affine/blocks/data-view && yarn vitest run`.
+4. `BlockQueryDataSource` Vitest (vanilla-extract): `yarn workspace @blocksuite/affine-block-data-view test` (from repo root), or `cd blocksuite/affine/blocks/data-view && yarn test`.
 
 **Execution gate:** No feature work before this tracker exists and decisions above are accepted.
 
-**Follow-ups (post–Phase E):** [implementation_plan.md](./implementation_plan.md) — integration tests for `BlockQueryDataSource`, database `tsc` / doc-link payload alignment, Phase D product decisions.
+**Follow-ups (post–Phase E):** [implementation_plan.md](./implementation_plan.md) — optional rollup-focused Vitest, decoupling `view-presets` if desired, Phase D product decisions. **Done on branch:** doc-link `ReferenceInfo` alignment (`database-block` / `linked-database-block`), `BlockQueryDataSource` import + relation integration tests in `@blocksuite/affine-block-data-view`.
 
 ---
 

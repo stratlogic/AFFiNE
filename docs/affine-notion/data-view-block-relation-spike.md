@@ -1,5 +1,7 @@
 # Phase E — `affine:data-view` and relations
 
+> **Last updated:** 2026-03-29
+
 This note captures the **design gap** between database rows and **workspace query** rows, the **ADR** for v1, and where the behavior is implemented.
 
 ## Problem (why this is not identical to `affine:database`)
@@ -18,15 +20,18 @@ This note captures the **design gap** between database rows and **workspace quer
 
 ## Implementation (code map)
 
-| Area                                                  | Location                                                                                    |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Query column presets (relation + rollup)              | `blocksuite/affine/blocks/data-view/src/columns/index.ts`                                   |
-| `BlockQueryDataSource` (cells, relation sync, rollup) | `blocksuite/affine/blocks/data-view/src/data-source.ts`                                     |
-| Read/write relation values on DB or data-view models  | `blocksuite/affine/blocks/database/src/utils/relation-container-cells.ts`                   |
-| Database relation `cellValueChange` / reverse detach  | `blocksuite/affine/blocks/database/src/data-source.ts`                                      |
-| Relation UI note for query-backed data sources        | `blocksuite/affine/data-view/src/property-presets/relation/cell-renderer.ts`                |
-| Unit tests for data-view-shaped cells                 | `blocksuite/affine/blocks/database/src/__tests__/relation-container-data-view.unit.spec.ts` |
+| Area                                                   | Location                                                                                                                                        |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Query column presets (relation + rollup)               | `blocksuite/affine/blocks/data-view/src/columns/index.ts`                                                                                       |
+| `BlockQueryDataSource` (cells, relation sync, rollup)  | `blocksuite/affine/blocks/data-view/src/data-source.ts`                                                                                         |
+| Read/write relation values on DB or data-view models   | `blocksuite/affine/blocks/database/src/utils/relation-container-cells.ts`                                                                       |
+| Database relation `cellValueChange` / reverse detach   | `blocksuite/affine/blocks/database/src/data-source.ts`                                                                                          |
+| Relation UI note for query-backed data sources         | `blocksuite/affine/data-view/src/property-presets/relation/cell-renderer.ts`                                                                    |
+| Unit tests (mock data-view cells)                      | `blocksuite/affine/blocks/database/src/__tests__/relation-container-data-view.unit.spec.ts`                                                     |
+| Vitest integration (`BlockQueryDataSource`, VE plugin) | `blocksuite/affine/blocks/data-view/src/__tests__/block-query-data-source-import.unit.spec.ts`, `block-query-data-source-relation.unit.spec.ts` |
 
 **Tracker:** [table_database_unify_task_tracker.md](./table_database_unify_task_tracker.md) — Phase E (E.1–E.6) complete.
 
-**Status:** Implemented on branch; see tracker for verification commands.
+**Post–Phase E hardening:** [implementation_plan.md](./implementation_plan.md) (doc-link `ReferenceInfo` alignment, optional rollup Vitest, Phase D).
+
+**Status:** Implemented; verify with commands in the unification tracker handoff section.
