@@ -1,8 +1,10 @@
 # Database Features — Task Tracker
 
 > **Source:** [database-relation-plan.md](file:///Users/yahyasyabani/Documents/Developer/PROJECT/StratLogic/AFFiNE/docs/database-relation-plan.md)
-> **Last Updated:** 2026-03-26
+> **Last Updated:** 2026-03-29
 > **Status Legend:** ⬜ Not Started · 🔵 In Progress · ✅ Done · ⛔ Blocked · 🟡 Needs Review
+>
+> **Related:** Workspace **query views** (`affine:data-view` / `BlockQueryDataSource`) reuse the same Relation and Rollup property presets with constraints documented in [data-view-block-relation-spike.md](./data-view-block-relation-spike.md) and the [table database unification tracker](./table_database_unify_task_tracker.md) (Phase E).
 
 ---
 

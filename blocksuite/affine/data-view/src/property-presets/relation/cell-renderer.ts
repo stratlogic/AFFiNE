@@ -227,6 +227,18 @@ export class RelationSettings extends SignalWatcher(
               this.toggleBidirectional(new MouseEvent('click'))}"
           ></toggle-switch>
         </div>
+        ${(
+          this.column.view.manager.dataSource as {
+            isBlockQueryDataSource?: boolean;
+          }
+        ).isBlockQueryDataSource
+          ? html`<div
+              style="font-size: 11px; color: var(--affine-text-secondary-color); padding: 0 8px 4px;"
+            >
+              Query row ids are block ids; cells persist if a row leaves the
+              query.
+            </div>`
+          : null}
       </div>
     `;
   }

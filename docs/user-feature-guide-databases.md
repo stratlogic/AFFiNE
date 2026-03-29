@@ -52,6 +52,17 @@ A **Linked Database** allows you to show a view of an existing database elsewher
 - **Simple table (slash):** Inserts the legacy **grid** block. Use it for a lightweight layout-only grid. You can **Upgrade to database table** from the banner above the grid when you need database features.
 - **Existing simple tables** keep working; conversion is optional and replaces the block with a database (confirm first).
 
+## 5. To-do list / workspace query view (`affine:data-view`)
+
+When the **To-do list** (workspace query) block is shown as a table, you can add **Relation** and **Rollup** columns the same way as in a database:
+
+- **Relation** links each query row (e.g. a to-do item) to **rows in a database on the same page**; the row picker is the same as for databases.
+- **Rollup** aggregates values from the **linked database** through that relation.
+- **Optional back-reference:** You can enable the reverse link on the target database; reverse columns store **query row block ids** (see the short note in the relation settings when configuring from a query view).
+- If a to-do **leaves** the query (e.g. type changes), linked data in the query view **may still be stored** on that block id even when the row no longer appears in the view—until you edit or clear the cell.
+
+For deeper product constraints and file-level references, see [affine-notion/data-view-block-relation-spike.md](./affine-notion/data-view-block-relation-spike.md).
+
 ## Important Constraints
 
 - **Doc-Local Scope:** Currently, relations and linked views only work with databases located on the **same page**.

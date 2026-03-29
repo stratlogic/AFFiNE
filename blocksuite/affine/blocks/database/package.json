@@ -39,7 +39,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./store": "./src/store.ts",
-    "./view": "./src/view.ts"
+    "./view": "./src/view.ts",
+    "./utils/relation-container-cells": "./src/utils/relation-container-cells.ts"
   },
   "files": [
     "src",

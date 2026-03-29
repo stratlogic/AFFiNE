@@ -51,6 +51,11 @@ import {
   updateView,
 } from './utils/block-utils.js';
 import {
+  getRelationIdsFromContainer,
+  setRelationIdsOnContainer,
+  updateColumnRelationData,
+} from './utils/relation-container-cells.js';
+import {
   databaseBlockViewConverts,
   databaseBlockViewMap,
   databaseBlockViews,
@@ -276,9 +281,9 @@ export class DatabaseBlockDataSource extends DataSourceBase {
                 | undefined;
 
               if (reversePropertyId && targetDatabaseId) {
-                const targetDb = this.doc.getBlock(targetDatabaseId)
-                  ?.model as any;
-                if (targetDb) {
+                const targetContainer =
+                  this.doc.getBlock(targetDatabaseId)?.model;
+                if (targetContainer) {
                   const oldArray = (Array.isArray(old) ? old : []) as string[];
                   const newArray = (
                     Array.isArray(newValue) ? newValue : []
@@ -288,36 +293,34 @@ export class DatabaseBlockDataSource extends DataSourceBase {
                   const removed = oldArray.filter(id => !newArray.includes(id));
 
                   added.forEach(targetRowId => {
-                    const cell = getCell(
-                      targetDb,
+                    const cellVal = getRelationIdsFromContainer(
+                      targetContainer,
                       targetRowId,
                       reversePropertyId
                     );
-                    const cellVal = (
-                      Array.isArray(cell?.value) ? cell.value : []
-                    ) as string[];
                     if (!cellVal.includes(rowId)) {
-                      updateCell(targetDb, targetRowId, {
-                        columnId: reversePropertyId,
-                        value: [...cellVal, rowId],
-                      });
+                      setRelationIdsOnContainer(
+                        targetContainer,
+                        targetRowId,
+                        reversePropertyId,
+                        [...cellVal, rowId]
+                      );
                     }
                   });
 
                   removed.forEach(targetRowId => {
-                    const cell = getCell(
-                      targetDb,
+                    const cellVal = getRelationIdsFromContainer(
+                      targetContainer,
                       targetRowId,
                       reversePropertyId
                     );
-                    const cellVal = (
-                      Array.isArray(cell?.value) ? cell.value : []
-                    ) as string[];
                     if (cellVal.includes(rowId)) {
-                      updateCell(targetDb, targetRowId, {
-                        columnId: reversePropertyId,
-                        value: cellVal.filter(id => id !== rowId),
-                      });
+                      setRelationIdsOnContainer(
+                        targetContainer,
+                        targetRowId,
+                        reversePropertyId,
+                        cellVal.filter(id => id !== rowId)
+                      );
                     }
                   });
                 }
@@ -559,11 +562,9 @@ export class DatabaseBlockDataSource extends DataSourceBase {
           if (targetDb) {
             if (isReverse) {
               // Task 2.5: Detach from forward
-              updateProperty(targetDb, reversePropertyId, col => ({
-                data: {
-                  ...col.data,
-                  reversePropertyId: null,
-                },
+              updateColumnRelationData(targetDb, reversePropertyId, data => ({
+                ...data,
+                reversePropertyId: null,
               }));
             } else {
               // Task 2.4: Delete reverse column in target

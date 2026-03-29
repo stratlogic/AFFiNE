@@ -1,7 +1,7 @@
 # Table ↔ Database unification — Task tracker
 
 > **Source plan:** `.cursor/plans/unify_table_with_database_2b02f92b.plan.md` (do not edit when executing)
-> **Last Updated:** 2026-03-29
+> **Last Updated:** 2026-03-29 (Phase E docs + implementation committed)
 > **Status:** ⬜ Not Started · 🔵 In Progress · ✅ Done · ⛔ Blocked
 
 ---
@@ -19,7 +19,7 @@
 ## Handoff — first execution PR
 
 1. From repo root: `pnpm test --run` (or `yarn test --run`).
-2. If touching database/table: include `blocksuite/affine/blocks/database/src/__tests__/` and `blocksuite/affine/blocks/linked-database/src/__tests__/`.
+2. If touching database/table/data-view query: include `blocksuite/affine/blocks/database/src/__tests__/` (e.g. `relation-sync.unit.spec.ts`, `relation-container-data-view.unit.spec.ts`) and `blocksuite/affine/blocks/linked-database/src/__tests__/`.
 3. Typecheck affected packages (Nx or `tsc -b` per workspace convention).
 
 **Execution gate:** No feature work before this tracker exists and decisions above are accepted.
@@ -65,11 +65,16 @@
 
 ---
 
-## Phase E — `affine:data-view` spike
+## Phase E — `affine:data-view` relations (BlockQueryDataSource)
 
-| ID  | Task                                          | Status | Notes                                                                    |
-| --- | --------------------------------------------- | ------ | ------------------------------------------------------------------------ |
-| E.1 | ADR: query rows vs database rows for relation | ✅     | [data-view-block-relation-spike.md](./data-view-block-relation-spike.md) |
+| ID  | Task                                          | Status | Notes                                                                                                                                                            |
+| --- | --------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| E.1 | ADR: query rows vs database rows for relation | ✅     | [data-view-block-relation-spike.md](./data-view-block-relation-spike.md)                                                                                         |
+| E.2 | Relation + rollup column presets on query DS  | ✅     | [`blocksuite/affine/blocks/data-view/src/columns/index.ts`](../../blocksuite/affine/blocks/data-view/src/columns/index.ts)                                       |
+| E.3 | Relation settings copy for query views        | ✅     | [`blocksuite/affine/data-view/src/property-presets/relation/cell-renderer.ts`](../../blocksuite/affine/data-view/src/property-presets/relation/cell-renderer.ts) |
+| E.4 | DB ↔ data-view relation cell sync             | ✅     | [`relation-container-cells.ts`](../../blocksuite/affine/blocks/database/src/utils/relation-container-cells.ts), `DatabaseBlockDataSource`                        |
+| E.5 | Rollup on `BlockQueryDataSource`              | ✅     | [`blocksuite/affine/blocks/data-view/src/data-source.ts`](../../blocksuite/affine/blocks/data-view/src/data-source.ts)                                           |
+| E.6 | Tests + `BlockQueryDataSource` completeness   | ✅     | [`relation-container-data-view.unit.spec.ts`](../../blocksuite/affine/blocks/database/src/__tests__/relation-container-data-view.unit.spec.ts)                   |
 
 ---
 
@@ -81,4 +86,4 @@
 | B     | 3     | 3    |
 | C     | 2     | 2    |
 | D     | 2     | 0    |
-| E     | 1     | 1    |
+| E     | 6     | 6    |
