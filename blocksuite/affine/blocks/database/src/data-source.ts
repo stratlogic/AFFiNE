@@ -788,8 +788,11 @@ export class DatabaseBlockDataSource extends DataSourceBase {
       rowId,
       config.relationPropertyId
     ) as string[] | null;
-    if (!relationValue || (relationValue && relationValue.length === 0)) {
-      return null;
+    if (!relationValue || relationValue.length === 0) {
+      if (config.calculation === 'count_all') {
+        return 0;
+      }
+      return this._applyRollupCalculation(config.calculation, []);
     }
 
     const relationData = this.propertyDataGet(config.relationPropertyId) as any;
@@ -805,12 +808,10 @@ export class DatabaseBlockDataSource extends DataSourceBase {
       return null;
     }
 
-    const values = (relationValue || [])
-      .map(targetRowId => {
-        const cell = getCell(targetDb, targetRowId, config.targetPropertyId);
-        return cell?.value;
-      })
-      .filter(v => v !== undefined);
+    const values = (relationValue || []).map(targetRowId => {
+      const cell = getCell(targetDb, targetRowId, config.targetPropertyId);
+      return cell?.value;
+    });
 
     return this._applyRollupCalculation(config.calculation, values);
   }
@@ -819,51 +820,103 @@ export class DatabaseBlockDataSource extends DataSourceBase {
     calculation: RollupCalculation,
     values: unknown[]
   ): unknown {
+    const isValueEmpty = (v: any) =>
+      v == null || v === '' || (Array.isArray(v) && v.length === 0);
+
     switch (calculation) {
       case 'count_all':
         return values.length;
       case 'count_values':
-        return values.filter(v => v !== null && v !== undefined).length;
+        return values.flat().filter(v => !isValueEmpty(v)).length;
       case 'count_unique':
-        return new Set(values).size;
+        return new Set(
+          values
+            .flat()
+            .map(v =>
+              typeof v === 'object' && v !== null ? JSON.stringify(v) : v
+            )
+        ).size;
       case 'count_empty':
-        return values.filter(v => v == null).length;
+        return values.filter(isValueEmpty).length;
       case 'count_not_empty':
-        return values.filter(v => v != null).length;
-      case 'sum':
-        return (values as any[]).reduce(
-          (a, b) => (Number(a) || 0) + (Number(b) || 0),
-          0
-        );
-      case 'average':
-        return values.length > 0
-          ? (values as any[]).reduce(
-              (a, b) => (Number(a) || 0) + (Number(b) || 0),
-              0
-            ) / values.length
-          : 0;
-      case 'min':
-        return values.length > 0
-          ? Math.min(...values.map(v => Number(v) || 0))
-          : null;
-      case 'max':
-        return values.length > 0
-          ? Math.max(...values.map(v => Number(v) || 0))
-          : null;
-      case 'earliest': {
-        const dates = values
-          .map(v => (v instanceof Date ? v.getTime() : Number(v)))
-          .filter(v => !isNaN(v));
-        return dates.length > 0 ? new Date(Math.min(...dates)) : null;
+        return values.filter(v => !isValueEmpty(v)).length;
+      case 'count_checked':
+        return values.flat().filter(v => v === true).length;
+      case 'count_unchecked':
+        return values.flat().filter(v => v === false).length;
+      case 'percent_checked': {
+        const total = values.flat().length;
+        const checked = values.flat().filter(v => v === true).length;
+        return total > 0 ? checked / total : null;
       }
+      case 'percent_unchecked': {
+        const total = values.flat().length;
+        const unchecked = values.flat().filter(v => v === false).length;
+        return total > 0 ? unchecked / total : null;
+      }
+      case 'percent_empty': {
+        const total = values.length;
+        const empty = values.filter(isValueEmpty).length;
+        return total > 0 ? empty / total : null;
+      }
+      case 'percent_not_empty': {
+        const total = values.length;
+        const notEmpty = values.filter(v => !isValueEmpty(v)).length;
+        return total > 0 ? notEmpty / total : null;
+      }
+      case 'sum':
+      case 'average':
+      case 'min':
+      case 'max':
+      case 'range': {
+        const nums = values
+          .flat()
+          .map(v => {
+            if (typeof v === 'number') return v;
+            if (typeof v === 'string' && v.trim() !== '') {
+              const n = Number(v);
+              // Avoid coercion if it's not a valid number
+              if (!isNaN(n) && isFinite(n)) return n;
+            }
+            if (v instanceof Date) return v.getTime();
+            return undefined;
+          })
+          .filter(v => v !== undefined) as number[];
+
+        if (calculation === 'sum') return nums.reduce((a, b) => a + b, 0);
+        if (calculation === 'average')
+          return nums.length > 0
+            ? nums.reduce((a, b) => a + b, 0) / nums.length
+            : null;
+        if (calculation === 'min')
+          return nums.length > 0 ? Math.min(...nums) : null;
+        if (calculation === 'max')
+          return nums.length > 0 ? Math.max(...nums) : null;
+        if (calculation === 'range')
+          return nums.length > 0 ? Math.max(...nums) - Math.min(...nums) : null;
+        return null;
+      }
+      case 'earliest':
       case 'latest': {
         const dates = values
-          .map(v => (v instanceof Date ? v.getTime() : Number(v)))
-          .filter(v => !isNaN(v));
-        return dates.length > 0 ? new Date(Math.max(...dates)) : null;
+          .flat()
+          .map(v => {
+            if (v instanceof Date) return v.getTime();
+            if (typeof v === 'string' && v.trim() !== '') {
+              const parsed = Date.parse(v);
+              if (!isNaN(parsed)) return parsed;
+            }
+            if (typeof v === 'number' && v > 0) return v;
+            return undefined;
+          })
+          .filter(v => v !== undefined) as number[];
+
+        if (calculation === 'earliest')
+          return dates.length > 0 ? new Date(Math.min(...dates)) : null;
+        return dates.length > 0 ? new Date(Math.max(...dates)) : null; // latest
       }
       case 'show_original':
-        return values;
+        return values.flat();
       default:
         return null;
     }

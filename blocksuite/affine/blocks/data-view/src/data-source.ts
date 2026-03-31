@@ -321,7 +321,7 @@ export class BlockQueryDataSource extends DataSourceBase {
       config.relationPropertyId
     ) as string[] | null;
     if (!relationValue || relationValue.length === 0) {
-      return null;
+      return this.applyRollupCalculation(config.calculation, []);
     }
 
     const relationData = this.propertyDataGet(
@@ -341,12 +341,10 @@ export class BlockQueryDataSource extends DataSourceBase {
       return null;
     }
 
-    const values = relationValue
-      .map(targetRowId => {
-        const cell = getCell(targetDb, targetRowId, config.targetPropertyId!);
-        return cell?.value;
-      })
-      .filter(v => v !== undefined);
+    const values = relationValue.map(targetRowId => {
+      const cell = getCell(targetDb, targetRowId, config.targetPropertyId!);
+      return cell?.value;
+    });
 
     return this.applyRollupCalculation(config.calculation, values);
   }
@@ -355,51 +353,73 @@ export class BlockQueryDataSource extends DataSourceBase {
     calculation: string,
     values: unknown[]
   ): unknown {
+    const isValueEmpty = (v: any) =>
+      v == null || v === '' || (Array.isArray(v) && v.length === 0);
+
     switch (calculation) {
       case 'count_all':
         return values.length;
       case 'count_values':
-        return values.filter(v => v !== null && v !== undefined).length;
+        return values.flat().filter(v => !isValueEmpty(v)).length;
       case 'count_unique':
-        return new Set(values).size;
+        return new Set(
+          values
+            .flat()
+            .map(v =>
+              typeof v === 'object' && v !== null ? JSON.stringify(v) : v
+            )
+        ).size;
       case 'count_empty':
-        return values.filter(v => v == null).length;
+        return values.filter(isValueEmpty).length;
       case 'count_not_empty':
-        return values.filter(v => v != null).length;
+        return values.filter(v => !isValueEmpty(v)).length;
       case 'sum':
-        return (values as number[]).reduce(
-          (a, b) => (Number(a) || 0) + (Number(b) || 0),
-          0
-        );
       case 'average':
-        return values.length > 0
-          ? (values as number[]).reduce(
-              (a, b) => (Number(a) || 0) + (Number(b) || 0),
-              0
-            ) / values.length
-          : 0;
       case 'min':
-        return values.length > 0
-          ? Math.min(...values.map(v => Number(v) || 0))
-          : null;
-      case 'max':
-        return values.length > 0
-          ? Math.max(...values.map(v => Number(v) || 0))
-          : null;
-      case 'earliest': {
-        const dates = values
-          .map(v => (v instanceof Date ? v.getTime() : Number(v)))
-          .filter(v => !isNaN(v));
-        return dates.length > 0 ? new Date(Math.min(...dates)) : null;
+      case 'max': {
+        const nums = values
+          .flat()
+          .map(v => {
+            if (typeof v === 'number') return v;
+            if (typeof v === 'string' && v.trim() !== '') {
+              const n = Number(v);
+              if (!isNaN(n)) return n;
+            }
+            if (v instanceof Date) return v.getTime();
+            return undefined;
+          })
+          .filter(v => v !== undefined) as number[];
+
+        if (calculation === 'sum') return nums.reduce((a, b) => a + b, 0);
+        if (calculation === 'average')
+          return nums.length > 0
+            ? nums.reduce((a, b) => a + b, 0) / nums.length
+            : null;
+        if (calculation === 'min')
+          return nums.length > 0 ? Math.min(...nums) : null;
+        return nums.length > 0 ? Math.max(...nums) : null; // max
       }
+      case 'earliest':
       case 'latest': {
         const dates = values
-          .map(v => (v instanceof Date ? v.getTime() : Number(v)))
-          .filter(v => !isNaN(v));
-        return dates.length > 0 ? new Date(Math.max(...dates)) : null;
+          .flat()
+          .map(v => {
+            if (v instanceof Date) return v.getTime();
+            if (typeof v === 'string') {
+              const parsed = Date.parse(v);
+              if (!isNaN(parsed)) return parsed;
+            }
+            if (typeof v === 'number') return v;
+            return undefined;
+          })
+          .filter(v => v !== undefined) as number[];
+
+        if (calculation === 'earliest')
+          return dates.length > 0 ? new Date(Math.min(...dates)) : null;
+        return dates.length > 0 ? new Date(Math.max(...dates)) : null; // latest
       }
       case 'show_original':
-        return values;
+        return values.flat();
       default:
         return null;
     }

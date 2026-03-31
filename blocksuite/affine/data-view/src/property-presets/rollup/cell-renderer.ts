@@ -9,7 +9,7 @@ import { SignalWatcher, WithDisposable } from '@blocksuite/global/lit';
 import { ShadowlessElement } from '@blocksuite/std';
 import type { Store } from '@blocksuite/store';
 import { signal } from '@preact/signals-core';
-import { html } from 'lit';
+import { html, type TemplateResult } from 'lit';
 import { property } from 'lit/decorators.js';
 
 import { BaseCellRenderer } from '../../core/property/index.js';
@@ -33,7 +33,7 @@ export class RollupSettings extends SignalWatcher(
 
   private renderSubMenuRow(
     label: string,
-    value: string,
+    value: string | TemplateResult,
     title: string,
     items: any[],
     disabled = false
@@ -110,10 +110,19 @@ export class RollupSettings extends SignalWatcher(
             class="dv-hover"
             style="padding: 4px 8px; border-radius: 4px; cursor: pointer; color: var(--affine-primary-color); font-size: 14px; background: var(--affine-background-secondary-color); text-align: center;"
             @click="${() => {
-              this.column.view.manager.dataSource.propertyAdd('end', {
-                type: 'relation',
-                name: 'New Relation',
-              });
+              const id = this.column.view.manager.dataSource.propertyAdd(
+                'end',
+                {
+                  type: 'relation',
+                  name: 'New Relation',
+                }
+              );
+              if (id) {
+                this.column.dataUpdate(d => ({
+                  ...d,
+                  relationPropertyId: id,
+                }));
+              }
             }}"
           >
             Add Relation Property
@@ -129,6 +138,9 @@ export class RollupSettings extends SignalWatcher(
 
     // Target Properties
     let targetColumns: any[] = [];
+    let isTargetDbMissing = false;
+    let isTargetPropertyMissing = false;
+
     if (relationPropertyId) {
       const relationData = dataSource.propertyDataGet(
         relationPropertyId
@@ -138,16 +150,25 @@ export class RollupSettings extends SignalWatcher(
       if (targetDbId && store) {
         const targetDb = store.getBlock(targetDbId)?.model as any;
         if (targetDb) {
-          targetColumns = (targetDb.props.columns || []).filter(
-            (col: any) => col.type !== 'rollup'
-          );
+          targetColumns = targetDb.props.columns || [];
+        } else {
+          isTargetDbMissing = true;
         }
+      } else {
+        isTargetDbMissing = true;
       }
     }
     const selectedTarget = targetColumns.find(
       col => col.id === targetPropertyId
     );
-    const targetName = selectedTarget?.name || 'Select property';
+    if (targetPropertyId && !selectedTarget && !isTargetDbMissing) {
+      isTargetPropertyMissing = true;
+    }
+    const targetName = isTargetDbMissing
+      ? '⚠️ Target DB not found'
+      : isTargetPropertyMissing
+        ? '⚠️ Column not found'
+        : selectedTarget?.name || 'Select property';
     const targetType = selectedTarget?.type || '';
 
     // Calculations
@@ -167,6 +188,28 @@ export class RollupSettings extends SignalWatcher(
       max: { name: 'Max', info: 'Largest value' },
       earliest: { name: 'Earliest', info: 'First date' },
       latest: { name: 'Latest', info: 'Last date' },
+      range: { name: 'Range', info: 'Difference between max and min' },
+      count_checked: { name: 'Count checked', info: 'Number of checked items' },
+      count_unchecked: {
+        name: 'Count unchecked',
+        info: 'Number of unchecked items',
+      },
+      percent_checked: {
+        name: 'Percent checked',
+        info: 'Percentage of checked items',
+      },
+      percent_unchecked: {
+        name: 'Percent unchecked',
+        info: 'Percentage of unchecked items',
+      },
+      percent_empty: {
+        name: 'Percent empty',
+        info: 'Percentage of empty cells',
+      },
+      percent_not_empty: {
+        name: 'Percent not empty',
+        info: 'Percentage of non-empty cells',
+      },
     };
 
     const allowedCalculations = [
@@ -176,12 +219,30 @@ export class RollupSettings extends SignalWatcher(
       'count_empty',
       'count_not_empty',
       'show_original',
+      'percent_empty',
+      'percent_not_empty',
     ];
     if (targetType === 'number' || targetType === 'progress') {
-      allowedCalculations.push('sum', 'average', 'min', 'max');
+      allowedCalculations.push('sum', 'average', 'min', 'max', 'range');
     } else if (targetType === 'date') {
-      allowedCalculations.push('earliest', 'latest');
+      allowedCalculations.push('earliest', 'latest', 'range');
+    } else if (targetType === 'checkbox') {
+      allowedCalculations.push(
+        'count_checked',
+        'count_unchecked',
+        'percent_checked',
+        'percent_unchecked'
+      );
     }
+
+    const isValidCalculation =
+      !targetType || allowedCalculations.includes(calculation);
+    const activeCalculationName = isValidCalculation
+      ? calculationMap[calculation]?.name || 'Select calculation'
+      : html`<span style="color: var(--affine-error-color)"
+          >⚠️ ${calculationMap[calculation]?.name || calculation} (requires
+          ${targetType === 'date' ? 'Date' : 'Number'})</span
+        >`;
 
     return html`
       <div
@@ -247,12 +308,19 @@ export class RollupSettings extends SignalWatcher(
                       menu.action({
                         name: col.name || col.id,
                         isSelected: col.id === targetPropertyId,
+                        info:
+                          col.type === 'rollup'
+                            ? html`<div
+                                style="font-size: 10px; color: var(--affine-text-secondary-color);"
+                              >
+                                Cannot rollup a rollup
+                              </div>`
+                            : undefined,
                         select: () => {
                           this.column.dataUpdate(d => ({
                             ...d,
                             targetPropertyId: col.id,
                           }));
-                          this.menu?.close();
                         },
                       })
                     );
@@ -266,7 +334,7 @@ export class RollupSettings extends SignalWatcher(
         <!-- Calculation -->
         ${this.renderSubMenuRow(
           'Calculate',
-          calculationMap[calculation]?.name || 'Select calculation',
+          activeCalculationName,
           'Select calculation',
           allowedCalculations.map(calc =>
             menu.action({
@@ -284,7 +352,6 @@ export class RollupSettings extends SignalWatcher(
                   ...d,
                   calculation: calc,
                 }));
-                this.menu?.close();
               },
             })
           ),
@@ -305,8 +372,9 @@ export class RollupCell extends BaseCellRenderer<any> {
       this.value == null ||
       (Array.isArray(this.value) && this.value.length === 0)
     ) {
-      return html`<span style="color: var(--affine-placeholder-color);"
-        >Empty</span
+      return html`<span
+        style="color: var(--affine-placeholder-color); opacity: 0.5;"
+        >—</span
       >`;
     }
 
@@ -315,9 +383,11 @@ export class RollupCell extends BaseCellRenderer<any> {
     }
 
     if (Array.isArray(this.value)) {
+      const displayValues = this.value.slice(0, 5);
+      const remaining = this.value.length - 5;
       return html`
         <div style="display: flex; gap: 4px; flex-wrap: wrap; padding: 4px 0;">
-          ${this.value.map(
+          ${displayValues.map(
             v => html`
               <div
                 style="padding: 2px 6px; background: var(--affine-background-secondary-color); border: 1px solid var(--affine-border-color); border-radius: 4px; font-size: 12px; color: var(--affine-text-primary-color); white-space: nowrap;"
@@ -326,8 +396,49 @@ export class RollupCell extends BaseCellRenderer<any> {
               </div>
             `
           )}
+          ${remaining > 0
+            ? html`<div
+                style="padding: 2px 6px; font-size: 12px; color: var(--affine-text-secondary-color); white-space: nowrap;"
+              >
+                +${remaining} more
+              </div>`
+            : ''}
         </div>
       `;
+    }
+
+    const calculation = (this.cell.property.data$.value as any).calculation;
+
+    if (typeof this.value === 'number') {
+      if (calculation.startsWith('percent_')) {
+        return html`<div
+          style="padding: 2px 6px; background: var(--affine-background-secondary-color); border: 1px solid var(--affine-border-color); border-radius: 4px; font-size: 12px; color: var(--affine-text-primary-color); display: inline-block;"
+        >
+          ${Math.round(this.value * 100)}%
+        </div>`;
+      }
+      if (calculation === 'range') {
+        const data = this.cell.property.data$.value as any;
+        const dataSource = this.view.manager.dataSource;
+        const relationData = dataSource.propertyDataGet(
+          data.relationPropertyId
+        ) as any;
+        const targetDbId = relationData?.targetDatabaseId;
+        const store = (dataSource as any).doc;
+        const targetDb = store?.getBlock(targetDbId)?.model as any;
+        const targetType = (targetDb?.props.columns as any[])?.find(
+          col => col.id === data.targetPropertyId
+        )?.type;
+
+        if (targetType === 'date') {
+          const days = Math.round(this.value / (1000 * 60 * 60 * 24));
+          return html`<div
+            style="padding: 2px 6px; background: var(--affine-background-secondary-color); border: 1px solid var(--affine-border-color); border-radius: 4px; font-size: 12px; color: var(--affine-text-primary-color); display: inline-block;"
+          >
+            ${days} ${days === 1 ? 'day' : 'days'}
+          </div>`;
+        }
+      }
     }
 
     return html`<div

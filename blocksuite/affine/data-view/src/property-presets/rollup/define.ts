@@ -18,6 +18,13 @@ export const RollupCalculationSchema = zod.enum([
   'earliest',
   'latest',
   'show_original',
+  'count_checked',
+  'count_unchecked',
+  'percent_checked',
+  'percent_unchecked',
+  'percent_empty',
+  'percent_not_empty',
+  'range',
 ]);
 
 export type RollupCalculation = zod.infer<typeof RollupCalculationSchema>;

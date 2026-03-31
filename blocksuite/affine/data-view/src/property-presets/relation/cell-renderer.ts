@@ -25,11 +25,30 @@ import type { TableProperty } from '../../view-presets/table/table-view-manager.
 import { relationPropertyModelConfig } from './define.js';
 
 // Helper to resolve row titles across the workspace
-function getRowTitle(store: Store, _targetDbId: string, rowId: string): string {
+export function getRowTitle(store: Store, rowId: string): string {
   const row = store.getBlock(rowId)?.model as any;
   if (!row) return '(deleted)';
   // Database rows are typically blocks with text/title
-  return row.title?.toString() || row.text?.toString() || 'Untitled';
+
+  // `Text.toString()` returns a snapshot and does not inherently trigger
+  // SignalWatcher re-renders. Touch the reactive signal here so relation
+  // chips update when the referenced row title changes.
+  const titleText = row.title as any | undefined;
+  const text = row.text as any | undefined;
+
+  void titleText?.deltas$?.value;
+  void text?.deltas$?.value;
+
+  const raw = titleText?.toString?.() || text?.toString?.() || '';
+  return raw === '' ? 'Untitled' : raw;
+}
+
+export function filterRelationIdsByValidSet(
+  ids: readonly string[] | null | undefined,
+  validIds: ReadonlySet<string>
+): string[] {
+  if (!ids?.length) return [];
+  return ids.filter(id => validIds.has(id));
 }
 
 // Helper to pop the row select menu
@@ -49,7 +68,7 @@ function popRowSelect(
 
   const rows = targetDb.children.map(child => ({
     id: child.id,
-    title: getRowTitle(store, targetDbId, child.id),
+    title: getRowTitle(store, child.id),
   }));
 
   const text$ = signal('');
@@ -88,13 +107,6 @@ function popRowSelect(
             }),
           ],
         }),
-        menu.action({
-          name: 'Done',
-          class: { 'done-button': true },
-          select: () => {
-            onComplete?.();
-          },
-        }),
       ],
     },
   });
@@ -117,6 +129,64 @@ export class RelationSettings extends SignalWatcher(
       ...data,
       isBidirectional: !data.isBidirectional,
     }));
+  }
+
+  private cleanUpOrphanedRelations(e: MouseEvent) {
+    e.stopPropagation();
+    const dataSource = this.column.view.manager.dataSource as any;
+    const store = dataSource.doc as Store;
+    const data = this.column.data$.value as any;
+    const rows = dataSource.rows$.value as string[];
+    const propertyId = this.column.id;
+    const targetDatabaseId = data?.targetDatabaseId as string | undefined;
+
+    const targetDb = targetDatabaseId
+      ? store.getBlock(targetDatabaseId)?.model
+      : null;
+    const validIds = targetDb?.children
+      ? new Set<string>(targetDb.children.map((c: any) => c.id))
+      : null;
+
+    store.transact(() => {
+      rows.forEach(rowId => {
+        const value = dataSource.cellValueGet(rowId, propertyId) as
+          | string[]
+          | undefined;
+        if (!value || value.length === 0) return;
+
+        const filtered = value.filter(targetId => {
+          if (!store.getBlock(targetId)) return false;
+          if (!validIds) return true;
+          return validIds.has(targetId);
+        });
+        if (filtered.length !== value.length) {
+          dataSource.cellValueChange(rowId, propertyId, filtered);
+        }
+      });
+    });
+    this.menu?.close();
+  }
+
+  private healBidirectionalRelations(e: MouseEvent) {
+    e.stopPropagation();
+    const dataSource = this.column.view.manager.dataSource as any;
+    const store = dataSource.doc as Store;
+    const rows = dataSource.rows$.value as string[];
+    const propertyId = this.column.id;
+
+    store.transact(() => {
+      rows.forEach(rowId => {
+        const value = dataSource.cellValueGet(rowId, propertyId) as
+          | string[]
+          | undefined;
+        if (value && value.length > 0) {
+          // Force a re-sync of bidirectional relations by simulating a clear and restore
+          dataSource.cellValueChange(rowId, propertyId, []);
+          dataSource.cellValueChange(rowId, propertyId, value);
+        }
+      });
+    });
+    this.menu?.close();
   }
 
   private renderSubMenuRow(
@@ -239,6 +309,30 @@ export class RelationSettings extends SignalWatcher(
               query.
             </div>`
           : null}
+
+        <div
+          style="height: 1px; background: var(--affine-border-color); margin: 4px 0;"
+        ></div>
+
+        <div
+          class="dv-hover"
+          style="display: flex; align-items: center; padding: 8px; border-radius: 4px; cursor: pointer; color: var(--affine-warning-color);"
+          @click="${this.cleanUpOrphanedRelations}"
+        >
+          <div style="font-size: 14px;">Clean up missing records</div>
+        </div>
+
+        ${data.isBidirectional && data.reversePropertyId
+          ? html`
+              <div
+                class="dv-hover"
+                style="display: flex; align-items: center; padding: 8px; border-radius: 4px; cursor: pointer; color: var(--affine-primary-color);"
+                @click="${this.healBidirectionalRelations}"
+              >
+                <div style="font-size: 14px;">Heal bidirectional links</div>
+              </div>
+            `
+          : null}
       </div>
     `;
   }
@@ -270,15 +364,37 @@ export class RelationCell extends BaseCellRenderer<string[]> {
       return html`<div style="padding: 4px; opacity: 0.5;">Picking...</div>`;
     }
 
+    // Read mode: auto-remove deleted/orphan relation IDs so chips don't
+    // keep showing stale titles.
+    const dataSource = this.view.manager.dataSource as any;
+    const store = dataSource.doc as Store;
+    let relationIds = this.value ?? [];
+
+    const targetDb = store.getBlock(targetDatabaseId)?.model as any;
+    const validIds = targetDb?.children
+      ? new Set<string>(targetDb.children.map((c: any) => c.id))
+      : null;
+    if (validIds) {
+      const filtered = filterRelationIdsByValidSet(relationIds, validIds);
+      const isSame =
+        filtered.length === relationIds.length &&
+        filtered.every((id, idx) => id === relationIds[idx]);
+      if (!isSame) {
+        // Update after render to avoid render/update cycles.
+        this.valueSetNextTick(filtered);
+        relationIds = filtered;
+      }
+    }
+
     // Read mode
     return html`
       <div style="display: flex; gap: 4px; flex-wrap: wrap; padding: 4px 0;">
-        ${(this.value ?? []).length === 0
+        ${relationIds.length === 0
           ? html`<span style="color: var(--affine-placeholder-color);"
               >Empty</span
             >`
           : repeat(
-              this.value ?? [],
+              relationIds,
               id => id,
               id => html`
                 <div
@@ -299,7 +415,6 @@ export class RelationCell extends BaseCellRenderer<string[]> {
                 >
                   ${getRowTitle(
                     (this.view.manager.dataSource as any).doc,
-                    targetDatabaseId,
                     id as string
                   )}
                 </div>
