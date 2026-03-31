@@ -11,6 +11,7 @@
   "license": "MIT",
   "dependencies": {
     "@atlaskit/pragmatic-drag-and-drop": "^1.7.7",
+    "@blocksuite/affine-block-database": "workspace:*",
     "@blocksuite/affine-components": "workspace:*",
     "@blocksuite/affine-ext-loader": "workspace:*",
     "@blocksuite/affine-inline-preset": "workspace:*",

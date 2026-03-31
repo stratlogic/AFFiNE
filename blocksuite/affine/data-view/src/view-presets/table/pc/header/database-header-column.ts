@@ -90,6 +90,9 @@ export class DatabaseHeaderColumn extends SignalWatcher(
             prefix: renderUniLit(config.renderer.icon),
             select: () => {
               this.column.typeSet?.(config.type);
+              if (config.type === 'relation' || config.type === 'rollup') {
+                return false;
+              }
             },
           });
         }),
@@ -210,33 +213,58 @@ export class DatabaseHeaderColumn extends SignalWatcher(
         items: [
           inputConfig(this.column),
           typeConfig(this.column),
+          menu.dynamic(() => {
+            const settings = this.column.meta$.value?.renderer.settings;
+            return settings
+              ? [
+                  menu.group({
+                    items: [
+                      (menu: any) =>
+                        renderUniLit(settings, {
+                          column: this.column,
+                          menu,
+                        }),
+                    ],
+                  }),
+                ]
+              : [];
+          }),
           // Number format begin
-          menu.subMenu({
-            name: 'Number Format',
-            hide: () =>
-              !this.column.dataUpdate || this.column.type$.value !== 'number',
-            options: {
-              items: [
-                numberFormatConfig(this.column),
-                ...numberFormats.map(format => {
-                  const data = this.column.data$.value;
-                  return menu.action({
-                    isSelected: data.format === format.type,
-                    prefix: html`<span
-                      style="font-size: var(--affine-font-base); scale: 1.2;"
-                      >${format.symbol}</span
-                    >`,
-                    name: format.label,
-                    select: () => {
-                      if (data.format === format.type) return;
-                      this.column.dataUpdate(() => ({
-                        format: format.type,
-                      }));
-                    },
-                  });
-                }),
-              ],
-            },
+          menu.dynamic(() => {
+            if (
+              !this.column.dataUpdate ||
+              this.column.type$.value !== 'number'
+            ) {
+              return [];
+            }
+            return [
+              menu.subMenu({
+                name: 'Number Format',
+                closeOnSelect: true,
+                options: {
+                  items: [
+                    numberFormatConfig(this.column),
+                    ...numberFormats.map(format => {
+                      const data = this.column.data$.value;
+                      return menu.action({
+                        isSelected: data.format === format.type,
+                        prefix: html`<span
+                          style="font-size: var(--affine-font-base); scale: 1.2;"
+                          >${format.symbol}</span
+                        >`,
+                        name: format.label,
+                        select: () => {
+                          if (data.format === format.type) return;
+                          this.column.dataUpdate(() => ({
+                            format: format.type,
+                          }));
+                        },
+                      });
+                    }),
+                  ],
+                },
+              }),
+            ];
           }),
           // Number format end
           menu.group({

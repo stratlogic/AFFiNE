@@ -2,6 +2,10 @@ import { richTextColumnConfig } from '@blocksuite/affine-block-database';
 import type { PropertyMetaConfig } from '@blocksuite/data-view';
 import { propertyPresets } from '@blocksuite/data-view/property-presets';
 
+/** Preset object includes relation/rollup at runtime; widen for query block columns. */
+const presets = propertyPresets as typeof propertyPresets &
+  Record<string, PropertyMetaConfig<string, any, any, any>>;
+
 export const queryBlockColumns = [
   propertyPresets.datePropertyConfig,
   propertyPresets.numberPropertyConfig,
@@ -9,6 +13,8 @@ export const queryBlockColumns = [
   propertyPresets.selectPropertyConfig,
   propertyPresets.multiSelectPropertyConfig,
   propertyPresets.checkboxPropertyConfig,
+  presets.relationPropertyConfig,
+  presets.rollupPropertyConfig,
 ];
 export const queryBlockHiddenColumns: PropertyMetaConfig<
   string,

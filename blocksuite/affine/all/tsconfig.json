@@ -20,6 +20,7 @@
     { "path": "../blocks/frame" },
     { "path": "../blocks/image" },
     { "path": "../blocks/latex" },
+    { "path": "../blocks/linked-database" },
     { "path": "../blocks/list" },
     { "path": "../blocks/note" },
     { "path": "../blocks/paragraph" },

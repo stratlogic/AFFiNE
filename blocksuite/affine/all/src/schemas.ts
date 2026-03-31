@@ -19,6 +19,7 @@ import {
   FrameBlockSchema,
   ImageBlockSchema,
   LatexBlockSchema,
+  LinkedDatabaseBlockSchema,
   ListBlockSchema,
   NoteBlockSchema,
   ParagraphBlockSchema,
@@ -56,4 +57,5 @@ export const AffineSchemas: z.infer<typeof BlockSchema>[] = [
   LatexBlockSchema,
   TableBlockSchema,
   CalloutBlockSchema,
+  LinkedDatabaseBlockSchema,
 ];

@@ -131,6 +131,9 @@ export const resolveLinkToDoc = (href: string, baseUrl?: string) => {
 export const preprocessParams = (
   params: ParsedQuery<string>
 ): ReferenceParams & { refreshKey?: string } => {
+  const isNonEmptyString = (v: unknown): v is string =>
+    typeof v === 'string' && v.length > 0;
+
   const result: ReferenceParams & { refreshKey?: string } = pickBy(
     params,
     value => {
@@ -142,10 +145,10 @@ export const preprocessParams = (
   );
 
   if (result.blockIds?.length) {
-    result.blockIds = result.blockIds.filter(v => v.length);
+    result.blockIds = result.blockIds.filter(isNonEmptyString);
   }
   if (result.elementIds?.length) {
-    result.elementIds = result.elementIds.filter(v => v.length);
+    result.elementIds = result.elementIds.filter(isNonEmptyString);
   }
 
   return pick(result, [
@@ -180,6 +183,8 @@ export function toURLSearchParams(
   params?: Partial<Record<string, string | string[]>>
 ) {
   if (!params) return;
+  const isNonEmptyString = (v: unknown): v is string =>
+    typeof v === 'string' && v.length > 0;
 
   const items = Object.entries(params)
     .filter(([_, v]) => !isNil(v))
@@ -192,14 +197,16 @@ export function toURLSearchParams(
       }
       return false;
     })
-    .map(([k, v]) => [k, Array.isArray(v) ? v.filter(v => v.length) : v]) as [
-    string,
-    string | string[],
-  ][];
+    .map(([k, v]) => [
+      k,
+      Array.isArray(v) ? v.filter(isNonEmptyString) : v,
+    ]) as [string, string | string[]][];
 
   return new URLSearchParams(
     items
-      .filter(([_, v]) => v.length)
+      .filter(([_, v]) =>
+        Array.isArray(v) ? v.some(isNonEmptyString) : v.length > 0
+      )
       .map(([k, v]) => [k, Array.isArray(v) ? v.join(',') : v])
   );
 }

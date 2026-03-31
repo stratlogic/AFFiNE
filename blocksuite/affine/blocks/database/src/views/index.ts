@@ -3,7 +3,11 @@ import { viewConverts, viewPresets } from '@blocksuite/data-view/view-presets';
 
 export const databaseBlockViews: ViewMeta[] = [
   viewPresets.tableViewMeta,
+  viewPresets.calendarViewMeta,
+  viewPresets.timelineViewMeta,
   viewPresets.kanbanViewMeta,
+  viewPresets.listViewMeta,
+  viewPresets.galleryViewMeta,
 ];
 
 export const databaseBlockViewMap = Object.fromEntries(

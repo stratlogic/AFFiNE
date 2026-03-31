@@ -20,9 +20,12 @@ import {
   ViewManagerBase,
   type ViewMeta,
 } from '@blocksuite/data-view';
-import { propertyPresets } from '@blocksuite/data-view/property-presets';
+import {
+  propertyPresets,
+  type RollupCalculation,
+  type RollupPropertyData,
+} from '@blocksuite/data-view/property-presets';
 import { IS_MOBILE } from '@blocksuite/global/env';
-import { BlockSuiteError, ErrorCode } from '@blocksuite/global/exceptions';
 import type { EditorHost } from '@blocksuite/std';
 import { type BlockModel } from '@blocksuite/store';
 import { computed, type ReadonlySignal, signal } from '@preact/signals-core';
@@ -35,6 +38,7 @@ import {
 import {
   addProperty,
   copyCellsByProperty,
+  deleteColumn,
   deleteRows,
   deleteView,
   duplicateView,
@@ -46,6 +50,11 @@ import {
   updateProperty,
   updateView,
 } from './utils/block-utils.js';
+import {
+  getRelationIdsFromContainer,
+  setRelationIdsOnContainer,
+  updateColumnRelationData,
+} from './utils/relation-container-cells.js';
 import {
   databaseBlockViewConverts,
   databaseBlockViewMap,
@@ -256,9 +265,67 @@ export class DatabaseBlockDataSource extends DataSourceBase {
       newValue: value,
       setValue: newValue => {
         if (this._model.props.columns$.value.some(v => v.id === propertyId)) {
-          updateCell(this._model, rowId, {
-            columnId: propertyId,
-            value: newValue,
+          this.doc.transact(() => {
+            updateCell(this._model, rowId, {
+              columnId: propertyId,
+              value: newValue,
+            });
+
+            if (type === 'relation') {
+              const data = this.propertyDataGet(propertyId) as any;
+              const reversePropertyId = data?.reversePropertyId as
+                | string
+                | undefined;
+              const targetDatabaseId = data?.targetDatabaseId as
+                | string
+                | undefined;
+
+              if (reversePropertyId && targetDatabaseId) {
+                const targetContainer =
+                  this.doc.getBlock(targetDatabaseId)?.model;
+                if (targetContainer) {
+                  const oldArray = (Array.isArray(old) ? old : []) as string[];
+                  const newArray = (
+                    Array.isArray(newValue) ? newValue : []
+                  ) as string[];
+
+                  const added = newArray.filter(id => !oldArray.includes(id));
+                  const removed = oldArray.filter(id => !newArray.includes(id));
+
+                  added.forEach(targetRowId => {
+                    const cellVal = getRelationIdsFromContainer(
+                      targetContainer,
+                      targetRowId,
+                      reversePropertyId
+                    );
+                    if (!cellVal.includes(rowId)) {
+                      setRelationIdsOnContainer(
+                        targetContainer,
+                        targetRowId,
+                        reversePropertyId,
+                        [...cellVal, rowId]
+                      );
+                    }
+                  });
+
+                  removed.forEach(targetRowId => {
+                    const cellVal = getRelationIdsFromContainer(
+                      targetContainer,
+                      targetRowId,
+                      reversePropertyId
+                    );
+                    if (cellVal.includes(rowId)) {
+                      setRelationIdsOnContainer(
+                        targetContainer,
+                        targetRowId,
+                        reversePropertyId,
+                        cellVal.filter(id => id !== rowId)
+                      );
+                    }
+                  });
+                }
+              }
+            }
           });
         }
       },
@@ -276,6 +343,11 @@ export class DatabaseBlockDataSource extends DataSourceBase {
     if (this.isSpacialProperty(type)) {
       return this.spacialValueGet(rowId, propertyId, type);
     }
+
+    if (type === 'rollup') {
+      return this._computeRollup(rowId, propertyId);
+    }
+
     const meta = this.propertyMetaGet(type);
     if (!meta) {
       return;
@@ -396,7 +468,58 @@ export class DatabaseBlockDataSource extends DataSourceBase {
 
   propertyDataSet(propertyId: string, data: Record<string, unknown>): void {
     this._runCapture();
-    this.updateProperty(propertyId, () => ({ data }));
+
+    this.doc.transact(() => {
+      const result = this.getPropertyAndIndex(propertyId);
+      if (result) {
+        const column = result.column;
+        if (column.type === 'relation') {
+          const oldData = (column.data ?? {}) as Record<string, any>;
+          const newData = (data ?? {}) as Record<string, any>;
+
+          const oldTargetId = oldData.targetDatabaseId as string | undefined;
+          const newTargetId = newData.targetDatabaseId as string | undefined;
+          const newIsBi = newData.isBidirectional !== false;
+
+          // Clean up old reverse property if target changed or bidirectional turned off
+          if (
+            oldData.reversePropertyId &&
+            (oldTargetId !== newTargetId || !newIsBi)
+          ) {
+            const oldTargetDb = this.doc.getBlock(oldTargetId as string)
+              ?.model as DatabaseBlockModel | undefined;
+            if (oldTargetDb) {
+              deleteColumn(oldTargetDb, oldData.reversePropertyId as string);
+            }
+            newData.reversePropertyId = null;
+          }
+
+          // Create new reverse property if target set and bidirectional ON
+          if (newTargetId && newIsBi && !newData.reversePropertyId) {
+            const targetDb = this.doc.getBlock(newTargetId)?.model as
+              | DatabaseBlockModel
+              | undefined;
+            if (targetDb) {
+              const newReversePropertyId = this.doc.workspace.idGenerator();
+              addProperty(targetDb, 'end', {
+                id: newReversePropertyId,
+                type: 'relation',
+                name: `Related to ${this._model.props.title?.toString() || 'Database'}`,
+                data: {
+                  targetDatabaseId: this._model.id,
+                  isBidirectional: true,
+                  isReverse: true,
+                  reversePropertyId: propertyId,
+                },
+              });
+              newData.reversePropertyId = newReversePropertyId;
+            }
+          }
+        }
+      }
+
+      this.updateProperty(propertyId, () => ({ data }));
+    });
   }
 
   propertyDataTypeGet(propertyId: string): TypeInstance | undefined {
@@ -424,6 +547,33 @@ export class DatabaseBlockDataSource extends DataSourceBase {
     if (index < 0) return;
 
     this.doc.transact(() => {
+      const column = this._model.props.columns[index];
+      if (!column) return;
+      if (column.type === 'relation') {
+        const data = (column.data ?? {}) as Record<string, any>;
+        const targetDatabaseId = data.targetDatabaseId as string | undefined;
+        const reversePropertyId = data.reversePropertyId as string | undefined;
+        const isReverse = data.isReverse === true;
+
+        if (targetDatabaseId && reversePropertyId) {
+          const targetDb = this.doc.getBlock(targetDatabaseId)?.model as
+            | DatabaseBlockModel
+            | undefined;
+          if (targetDb) {
+            if (isReverse) {
+              // Task 2.5: Detach from forward
+              updateColumnRelationData(targetDb, reversePropertyId, data => ({
+                ...data,
+                reversePropertyId: null,
+              }));
+            } else {
+              // Task 2.4: Delete reverse column in target
+              deleteColumn(targetDb, reversePropertyId);
+            }
+          }
+        }
+      }
+
       this._model.props.columns = this._model.props.columns.filter(
         (_, i) => i !== index
       );
@@ -603,20 +753,219 @@ export class DatabaseBlockDataSource extends DataSourceBase {
   viewMetaGet(type: string): ViewMeta {
     const view = databaseBlockViewMap[type];
     if (!view) {
-      throw new BlockSuiteError(
-        ErrorCode.DatabaseBlockError,
-        `Unknown view type: ${type}`
+      // Defensive fallback for forward-compatibility: an old client opening a
+      // doc written by a newer client may encounter an unknown view mode.
+      // Return the first registered view rather than throwing, so the database
+      // renders in a degraded-but-stable state instead of crashing.
+      console.warn(
+        `[AFFiNE] Unknown database view type "${type}". Falling back to default view.`
       );
+      return databaseBlockViews[0]!;
     }
     return view;
   }
 
   viewMetaGetById(viewId: string): ViewMeta | undefined {
     const view = this.viewDataGet(viewId);
-    if (!view) {
-      return;
-    }
+    if (!view) return;
+    // Short-circuit before viewMetaGet if the mode is unrecognised — lets
+    // viewGet() return undefined and the view manager skip this view safely.
+    if (!databaseBlockViewMap[view.mode]) return;
     return this.viewMetaGet(view.mode);
+  }
+
+  private _computeRollup(rowId: string, propertyId: string): unknown {
+    const config = this.propertyDataGet(propertyId) as RollupPropertyData;
+    if (
+      !config.relationPropertyId ||
+      !config.targetPropertyId ||
+      !config.calculation
+    ) {
+      return null;
+    }
+
+    const relationValue = this.cellValueGet(
+      rowId,
+      config.relationPropertyId
+    ) as string[] | null;
+    if (!relationValue || relationValue.length === 0) {
+      if (config.calculation === 'count_all') {
+        return 0;
+      }
+      return this._applyRollupCalculation(config.calculation, []);
+    }
+
+    const relationData = this.propertyDataGet(config.relationPropertyId) as any;
+    const targetDatabaseId = relationData?.targetDatabaseId;
+    if (!targetDatabaseId) {
+      return null;
+    }
+
+    const targetDb = this.doc.getBlock(targetDatabaseId)?.model as
+      | DatabaseBlockModel
+      | undefined;
+    if (!targetDb) {
+      return null;
+    }
+
+    const values = (relationValue || []).map(targetRowId => {
+      const cell = getCell(targetDb, targetRowId, config.targetPropertyId);
+      return cell?.value;
+    });
+
+    if (config.calculation === 'show_original') {
+      return this._formatRollupOriginalValues(
+        targetDb,
+        config.targetPropertyId,
+        values
+      );
+    }
+
+    return this._applyRollupCalculation(config.calculation, values);
+  }
+
+  private _formatRollupOriginalValues(
+    targetDb: DatabaseBlockModel,
+    targetPropertyId: string,
+    values: unknown[]
+  ): unknown[] {
+    const column = targetDb.props.columns.find(
+      col => col.id === targetPropertyId
+    );
+    if (!column) {
+      return values.flat();
+    }
+    const propertyMeta = this.propertyMetaGet(column.type);
+    if (!propertyMeta) {
+      return values.flat();
+    }
+    return values
+      .flat()
+      .map(value =>
+        this._formatRollupOriginalValue(propertyMeta, column.data, value)
+      );
+  }
+
+  private _formatRollupOriginalValue(
+    propertyMeta: PropertyMetaConfig,
+    propertyData: Record<string, unknown>,
+    value: unknown
+  ): unknown {
+    if (value == null) return value;
+    try {
+      return propertyMeta.config.rawValue.toString({
+        value: value as never,
+        data: propertyData as never,
+      });
+    } catch {
+      return value;
+    }
+  }
+
+  private _applyRollupCalculation(
+    calculation: RollupCalculation,
+    values: unknown[]
+  ): unknown {
+    const isValueEmpty = (v: any) =>
+      v == null || v === '' || (Array.isArray(v) && v.length === 0);
+
+    switch (calculation) {
+      case 'count_all':
+        return values.length;
+      case 'count_values':
+        return values.flat().filter(v => !isValueEmpty(v)).length;
+      case 'count_unique':
+        return new Set(
+          values
+            .flat()
+            .map(v =>
+              typeof v === 'object' && v !== null ? JSON.stringify(v) : v
+            )
+        ).size;
+      case 'count_empty':
+        return values.filter(isValueEmpty).length;
+      case 'count_not_empty':
+        return values.filter(v => !isValueEmpty(v)).length;
+      case 'count_checked':
+        return values.flat().filter(v => v === true).length;
+      case 'count_unchecked':
+        return values.flat().filter(v => v === false).length;
+      case 'percent_checked': {
+        const total = values.flat().length;
+        const checked = values.flat().filter(v => v === true).length;
+        return total > 0 ? checked / total : null;
+      }
+      case 'percent_unchecked': {
+        const total = values.flat().length;
+        const unchecked = values.flat().filter(v => v === false).length;
+        return total > 0 ? unchecked / total : null;
+      }
+      case 'percent_empty': {
+        const total = values.length;
+        const empty = values.filter(isValueEmpty).length;
+        return total > 0 ? empty / total : null;
+      }
+      case 'percent_not_empty': {
+        const total = values.length;
+        const notEmpty = values.filter(v => !isValueEmpty(v)).length;
+        return total > 0 ? notEmpty / total : null;
+      }
+      case 'sum':
+      case 'average':
+      case 'min':
+      case 'max':
+      case 'range': {
+        const nums = values
+          .flat()
+          .map(v => {
+            if (typeof v === 'number') return v;
+            if (typeof v === 'string' && v.trim() !== '') {
+              const n = Number(v);
+              // Avoid coercion if it's not a valid number
+              if (!isNaN(n) && isFinite(n)) return n;
+            }
+            if (v instanceof Date) return v.getTime();
+            return undefined;
+          })
+          .filter(v => v !== undefined) as number[];
+
+        if (calculation === 'sum') return nums.reduce((a, b) => a + b, 0);
+        if (calculation === 'average')
+          return nums.length > 0
+            ? nums.reduce((a, b) => a + b, 0) / nums.length
+            : null;
+        if (calculation === 'min')
+          return nums.length > 0 ? Math.min(...nums) : null;
+        if (calculation === 'max')
+          return nums.length > 0 ? Math.max(...nums) : null;
+        if (calculation === 'range')
+          return nums.length > 0 ? Math.max(...nums) - Math.min(...nums) : null;
+        return null;
+      }
+      case 'earliest':
+      case 'latest': {
+        const dates = values
+          .flat()
+          .map(v => {
+            if (v instanceof Date) return v.getTime();
+            if (typeof v === 'string' && v.trim() !== '') {
+              const parsed = Date.parse(v);
+              if (!isNaN(parsed)) return parsed;
+            }
+            if (typeof v === 'number' && v > 0) return v;
+            return undefined;
+          })
+          .filter(v => v !== undefined) as number[];
+
+        if (calculation === 'earliest')
+          return dates.length > 0 ? new Date(Math.min(...dates)) : null;
+        return dates.length > 0 ? new Date(Math.max(...dates)) : null; // latest
+      }
+      case 'show_original':
+        return values.flat();
+      default:
+        return null;
+    }
   }
 }
 

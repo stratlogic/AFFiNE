@@ -7,6 +7,7 @@ import {
 import { DropIndicator } from '@blocksuite/affine-components/drop-indicator';
 import { PeekViewProvider } from '@blocksuite/affine-components/peek';
 import { toast } from '@blocksuite/affine-components/toast';
+import { RefNodeSlotsProvider } from '@blocksuite/affine-inline-reference';
 import type { DatabaseBlockModel } from '@blocksuite/affine-model';
 import { EDGELESS_TOP_CONTENTEDITABLE_SELECTOR } from '@blocksuite/affine-shared/consts';
 import {
@@ -140,6 +141,8 @@ export class DatabaseBlockComponent extends CaptionedBlockComponent<DatabaseBloc
   };
 
   private readonly dataSource = lazy(() => {
+    // DatabaseBlockDataSource manages the underlying data and property metadata.
+    // It now supports the 'relation' property type, which allows cross-database linking.
     const dataSource = new DatabaseBlockDataSource(this.model, dataSource => {
       dataSource.serviceSet(EditorHostKey, this.host);
       this.std.provider
@@ -353,6 +356,22 @@ export class DatabaseBlockComponent extends CaptionedBlockComponent<DatabaseBloc
     this.classList.add(databaseBlockStyles);
     this.listenFullWidthChange();
     this.handleMobileEditing();
+    this.handleDocLinkClick();
+  }
+
+  handleDocLinkClick() {
+    this.disposables.addFromEvent(
+      this,
+      'affine-doc-link-clicked',
+      (e: CustomEvent<{ pageId: string; blockId?: string }>) => {
+        const { pageId, blockId } = e.detail;
+        this.std.getOptional(RefNodeSlotsProvider)?.docLinkClicked.next({
+          pageId,
+          ...(blockId ? { params: { blockIds: [blockId] } } : {}),
+          host: this.host,
+        });
+      }
+    );
   }
 
   listenFullWidthChange() {

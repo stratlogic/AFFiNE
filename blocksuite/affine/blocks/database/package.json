@@ -39,7 +39,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./store": "./src/store.ts",
-    "./view": "./src/view.ts"
+    "./view": "./src/view.ts",
+    "./utils/relation-container-cells": "./src/utils/relation-container-cells.ts"
   },
   "files": [
     "src",
@@ -47,5 +48,9 @@
     "!src/__tests__",
     "!dist/__tests__"
   ],
-  "version": "0.26.3"
+  "version": "0.26.3",
+  "devDependencies": {
+    "happy-dom": "^20.0.0",
+    "vitest": "^3.2.4"
+  }
 }

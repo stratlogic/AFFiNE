@@ -6,6 +6,7 @@ export * from './data-source';
 export * from './database-block';
 export * from './detail-panel/block-renderer';
 export * from './detail-panel/note-renderer';
+export * from './migration/table-to-database.js';
 export * from './properties';
 export * from './properties/rich-text/cell-renderer';
 export * from './selection.js';

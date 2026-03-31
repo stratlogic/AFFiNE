@@ -18,6 +18,7 @@ export const PackageList = [
       'blocksuite/affine/blocks/frame',
       'blocksuite/affine/blocks/image',
       'blocksuite/affine/blocks/latex',
+      'blocksuite/affine/blocks/linked-database',
       'blocksuite/affine/blocks/list',
       'blocksuite/affine/blocks/note',
       'blocksuite/affine/blocks/paragraph',
@@ -293,6 +294,23 @@ export const PackageList = [
       'blocksuite/affine/rich-text',
       'blocksuite/affine/shared',
       'blocksuite/affine/widgets/slash-menu',
+      'blocksuite/framework/global',
+      'blocksuite/framework/std',
+      'blocksuite/framework/store',
+    ],
+  },
+  {
+    location: 'blocksuite/affine/blocks/linked-database',
+    name: '@blocksuite/affine-block-linked-database',
+    workspaceDependencies: [
+      'blocksuite/affine/blocks/database',
+      'blocksuite/affine/components',
+      'blocksuite/affine/ext-loader',
+      'blocksuite/affine/inlines/reference',
+      'blocksuite/affine/model',
+      'blocksuite/affine/shared',
+      'blocksuite/affine/widgets/slash-menu',
+      'blocksuite/affine/data-view',
       'blocksuite/framework/global',
       'blocksuite/framework/std',
       'blocksuite/framework/store',
@@ -1450,6 +1468,7 @@ export type PackageName =
   | '@blocksuite/affine-block-frame'
   | '@blocksuite/affine-block-image'
   | '@blocksuite/affine-block-latex'
+  | '@blocksuite/affine-block-linked-database'
   | '@blocksuite/affine-block-list'
   | '@blocksuite/affine-block-note'
   | '@blocksuite/affine-block-paragraph'

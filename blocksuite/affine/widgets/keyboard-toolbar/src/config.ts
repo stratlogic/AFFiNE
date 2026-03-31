@@ -18,7 +18,6 @@ import {
 } from '@blocksuite/affine-block-paragraph';
 import { DefaultTool, getSurfaceBlock } from '@blocksuite/affine-block-surface';
 import { insertSurfaceRefBlockCommand } from '@blocksuite/affine-block-surface-ref';
-import { insertTableBlockCommand } from '@blocksuite/affine-block-table';
 import { toggleEmbedCardCreateModal } from '@blocksuite/affine-components/embed-card-modal';
 import { toast } from '@blocksuite/affine-components/toast';
 import { insertInlineLatex } from '@blocksuite/affine-inline-latex';
@@ -263,21 +262,22 @@ const textToolActionItems: KeyboardToolbarActionItem[] = [
     name: 'Table',
     icon: TableIcon(),
     showWhen: ({ std, rootComponent: { model } }) =>
-      std.store.schema.flavourSchemaMap.has('affine:table') &&
+      std.store.schema.flavourSchemaMap.has('affine:database') &&
       !isInsideBlockByFlavour(std.store, model, 'affine:edgeless-text'),
     action: ({ std }) => {
       std.command
         .chain()
         .pipe(getSelectedModelsCommand)
-        .pipe(insertTableBlockCommand, {
+        .pipe(insertDatabaseBlockCommand, {
+          viewType: viewPresets.tableViewMeta.type,
           place: 'after',
           removeEmptyLine: true,
         })
-        .pipe(({ insertedTableBlockId }) => {
-          if (insertedTableBlockId) {
+        .pipe(({ insertedDatabaseBlockId }) => {
+          if (insertedDatabaseBlockId) {
             const telemetry = std.getOptional(TelemetryProvider);
             telemetry?.track('BlockCreated', {
-              blockType: 'affine:table',
+              blockType: 'affine:database',
             });
           }
         })
