@@ -265,5 +265,57 @@ describe('DatabaseBlockDataSource — Relations & Rollups', () => {
       // Assert Count
       expect(dsA.cellValueGet('row-a1', rollupCountId)).toBe(3);
     });
+
+    test('show_original returns select labels instead of option ids', () => {
+      const relId = 'rel-1';
+      dbA.props.columns.push({
+        id: relId,
+        type: 'relation',
+        name: 'Related',
+        data: { targetDatabaseId: 'db-b' },
+      });
+
+      const statusColId = 'status-1';
+      dbB.props.columns.push({
+        id: statusColId,
+        type: 'select',
+        name: 'Status',
+        data: {
+          options: [
+            { id: 'option_todo', value: 'To Do', color: 'gray' },
+            { id: 'option_prog', value: 'In Progress', color: 'blue' },
+          ],
+        },
+      });
+
+      const rollupId = 'roll-show';
+      dbA.props.columns.push({
+        id: rollupId,
+        type: 'rollup',
+        name: 'Status labels',
+        data: {
+          relationPropertyId: relId,
+          targetPropertyId: statusColId,
+          calculation: 'show_original',
+        } as RollupPropertyData,
+      });
+
+      dbA.children.push({ id: 'row-a1' });
+      dbA.childMap.value.set('row-a1', 0);
+      dbB.children.push({ id: 'row-b1' }, { id: 'row-b2' });
+      dbB.childMap.value.set('row-b1', 0);
+      dbB.childMap.value.set('row-b2', 1);
+
+      dbB.props.cells['row-b1'] = { [statusColId]: { value: 'option_todo' } };
+      dbB.props.cells['row-b2'] = { [statusColId]: { value: 'option_prog' } };
+      dbA.props.cells['row-a1'] = {
+        [relId]: { value: ['row-b1', 'row-b2'] },
+      };
+
+      expect(dsA.cellValueGet('row-a1', rollupId)).toEqual([
+        'To Do',
+        'In Progress',
+      ]);
+    });
   });
 });

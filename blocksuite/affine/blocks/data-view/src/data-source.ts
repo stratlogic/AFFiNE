@@ -346,7 +346,53 @@ export class BlockQueryDataSource extends DataSourceBase {
       return cell?.value;
     });
 
+    if (config.calculation === 'show_original') {
+      return this.formatRollupOriginalValues(
+        targetDb,
+        config.targetPropertyId!,
+        values
+      );
+    }
+
     return this.applyRollupCalculation(config.calculation, values);
+  }
+
+  private formatRollupOriginalValues(
+    targetDb: DatabaseBlockModel,
+    targetPropertyId: string,
+    values: unknown[]
+  ): unknown[] {
+    const column = targetDb.props.columns.find(
+      col => col.id === targetPropertyId
+    );
+    if (!column) {
+      return values.flat();
+    }
+    const propertyMeta = this.propertyMetaGet(column.type);
+    if (!propertyMeta) {
+      return values.flat();
+    }
+    return values
+      .flat()
+      .map(value =>
+        this.formatRollupOriginalValue(propertyMeta, column.data, value)
+      );
+  }
+
+  private formatRollupOriginalValue(
+    propertyMeta: PropertyMetaConfig,
+    propertyData: Record<string, unknown>,
+    value: unknown
+  ): unknown {
+    if (value == null) return value;
+    try {
+      return propertyMeta.config.rawValue.toString({
+        value: value as never,
+        data: propertyData as never,
+      });
+    } catch {
+      return value;
+    }
   }
 
   private applyRollupCalculation(

@@ -16,7 +16,7 @@ import {
 } from '@blocksuite/affine-model';
 import { FeatureFlagService } from '@blocksuite/affine-shared/services';
 import type { EditorHost } from '@blocksuite/std';
-import { type Store,Text } from '@blocksuite/store';
+import { type Store, Text } from '@blocksuite/store';
 import {
   createAutoIncrementIdGenerator,
   TestWorkspace,
@@ -144,5 +144,56 @@ describe('BlockQueryDataSource — relation sync to database', () => {
     const revCell = getCell(dbModel, dbRowId, reverseId);
     const v = revCell?.value as unknown;
     expect(Array.isArray(v) ? v : []).toContain(todoRowId);
+  });
+
+  test('rollup show_original resolves select option labels', () => {
+    const ds = new BlockQueryDataSource(asHost(store), dvModel, {
+      type: 'todo',
+    });
+
+    const statusColId = store.workspace.idGenerator();
+    dbModel.props.columns.push({
+      id: statusColId,
+      type: 'select',
+      name: 'Status',
+      data: {
+        options: [
+          { id: 'option_todo', value: 'To Do', color: 'gray' },
+          { id: 'option_done', value: 'Done', color: 'green' },
+        ],
+      },
+    } as any);
+
+    const dbRowId2 = store.addBlock('affine:paragraph', {}, dbId);
+    store.transact(() => {
+      dbModel.props.cells[dbRowId] = {
+        ...dbModel.props.cells[dbRowId],
+        [statusColId]: { value: 'option_todo' },
+      };
+      dbModel.props.cells[dbRowId2] = {
+        ...dbModel.props.cells[dbRowId2],
+        [statusColId]: { value: 'option_done' },
+      };
+    });
+
+    const relId = ds.propertyAdd('end', { type: 'relation', name: 'Link' });
+    ds.propertyDataSet(relId, {
+      targetDatabaseId: dbId,
+      isBidirectional: false,
+    });
+
+    const rollupId = ds.propertyAdd('end', {
+      type: 'rollup',
+      name: 'Statuses',
+    });
+    ds.propertyDataSet(rollupId, {
+      relationPropertyId: relId,
+      targetPropertyId: statusColId,
+      calculation: 'show_original',
+    });
+
+    ds.cellValueChange(todoRowId, relId, [dbRowId, dbRowId2]);
+
+    expect(ds.cellValueGet(todoRowId, rollupId)).toEqual(['To Do', 'Done']);
   });
 });

@@ -256,11 +256,11 @@ export class LinkedDatabaseBlockComponent extends CaptionedBlockComponent<Linked
     this.disposables.addFromEvent(
       this,
       'affine-doc-link-clicked',
-      (e: CustomEvent<{ pageId: string; blockId: string }>) => {
+      (e: CustomEvent<{ pageId: string; blockId?: string }>) => {
         const { pageId, blockId } = e.detail;
         this.std.getOptional(RefNodeSlotsProvider)?.docLinkClicked.next({
           pageId,
-          params: { blockIds: [blockId] },
+          ...(blockId ? { params: { blockIds: [blockId] } } : {}),
           host: this.host,
         });
       }

@@ -24,6 +24,62 @@ import { createIcon } from '../../core/utils/uni-icon.js';
 import type { TableProperty } from '../../view-presets/table/table-view-manager.js';
 import { relationPropertyModelConfig } from './define.js';
 
+type LinkedReference = {
+  pageId: string;
+  title?: string;
+};
+
+function getLinkedReferenceFromText(
+  text: any | undefined
+): LinkedReference | null {
+  const deltas = text?.deltas$?.value as any[] | undefined;
+  if (!deltas || deltas.length === 0) return null;
+  for (const delta of deltas) {
+    const reference = delta?.attributes?.reference;
+    if (
+      reference?.type === 'LinkedPage' &&
+      typeof reference.pageId === 'string'
+    ) {
+      return {
+        pageId: reference.pageId,
+        title:
+          typeof reference.title === 'string' && reference.title.trim() !== ''
+            ? reference.title
+            : undefined,
+      };
+    }
+  }
+  return null;
+}
+
+function getLinkedReferenceTitle(
+  store: Store,
+  text: any | undefined
+): string | null {
+  const reference = getLinkedReferenceFromText(text);
+  if (!reference) return null;
+  if (reference.title) return reference.title;
+  const metaTitle = store.workspace.meta.docMetas.find(
+    meta => meta.id === reference.pageId
+  )?.title;
+  return metaTitle ?? null;
+}
+
+export function getRowLinkedPageTarget(
+  store: Store,
+  rowId: string
+): string | null {
+  const row = store.getBlock(rowId)?.model as any;
+  if (!row) return null;
+  const titleText = row.title as any | undefined;
+  const text = row.text as any | undefined;
+  return (
+    getLinkedReferenceFromText(titleText)?.pageId ??
+    getLinkedReferenceFromText(text)?.pageId ??
+    null
+  );
+}
+
 // Helper to resolve row titles across the workspace
 export function getRowTitle(store: Store, rowId: string): string {
   const row = store.getBlock(rowId)?.model as any;
@@ -38,6 +94,11 @@ export function getRowTitle(store: Store, rowId: string): string {
 
   void titleText?.deltas$?.value;
   void text?.deltas$?.value;
+
+  const linkedTitle =
+    getLinkedReferenceTitle(store, titleText) ??
+    getLinkedReferenceTitle(store, text);
+  if (linkedTitle) return linkedTitle;
 
   const raw = titleText?.toString?.() || text?.toString?.() || '';
   return raw === '' ? 'Untitled' : raw;
@@ -401,11 +462,17 @@ export class RelationCell extends BaseCellRenderer<string[]> {
                   style="padding: 2px 6px; background: var(--affine-background-tertiary-color); border-radius: 4px; font-size: 12px; cursor: pointer;"
                   @click="${(e: MouseEvent) => {
                     e.stopPropagation();
+                    const linkedPageId = getRowLinkedPageTarget(
+                      (this.view.manager.dataSource as any).doc,
+                      id as string
+                    );
                     this.dispatchEvent(
                       new CustomEvent('affine-doc-link-clicked', {
                         detail: {
-                          pageId: (this.view.manager.dataSource as any).doc.id,
-                          blockId: id as string,
+                          pageId:
+                            linkedPageId ??
+                            (this.view.manager.dataSource as any).doc.id,
+                          ...(linkedPageId ? {} : { blockId: id as string }),
                         },
                         bubbles: true,
                         composed: true,
