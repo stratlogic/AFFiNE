@@ -462,17 +462,11 @@ export class RelationCell extends BaseCellRenderer<string[]> {
                   style="padding: 2px 6px; background: var(--affine-background-tertiary-color); border-radius: 4px; font-size: 12px; cursor: pointer;"
                   @click="${(e: MouseEvent) => {
                     e.stopPropagation();
-                    const linkedPageId = getRowLinkedPageTarget(
-                      (this.view.manager.dataSource as any).doc,
-                      id as string
-                    );
                     this.dispatchEvent(
-                      new CustomEvent('affine-doc-link-clicked', {
+                      new CustomEvent('affine-database-row-peek-request', {
                         detail: {
-                          pageId:
-                            linkedPageId ??
-                            (this.view.manager.dataSource as any).doc.id,
-                          ...(linkedPageId ? {} : { blockId: id as string }),
+                          databaseId: targetDatabaseId,
+                          rowId: id as string,
                         },
                         bubbles: true,
                         composed: true,

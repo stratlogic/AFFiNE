@@ -829,7 +829,7 @@ export class DatabaseBlockDataSource extends DataSourceBase {
     targetPropertyId: string,
     values: unknown[]
   ): unknown[] {
-    const column = targetDb.props.columns.find(
+    const column = targetDb.props.columns$.value.find(
       col => col.id === targetPropertyId
     );
     if (!column) {
@@ -839,11 +839,38 @@ export class DatabaseBlockDataSource extends DataSourceBase {
     if (!propertyMeta) {
       return values.flat();
     }
-    return values
-      .flat()
+
+    if (column.type === 'multi-select') {
+      const strings = values.map(cellVal => {
+        if (cellVal == null) return null;
+        if (Array.isArray(cellVal)) {
+          return this._formatRollupOriginalValue(
+            propertyMeta,
+            column.data,
+            cellVal
+          ) as string;
+        }
+        return this._formatRollupOriginalValue(
+          propertyMeta,
+          column.data,
+          cellVal
+        ) as string;
+      });
+      return strings.filter(
+        v => v != null && String(v).trim() !== ''
+      ) as unknown[];
+    }
+
+    const flat = values.flat();
+    return flat
       .map(value =>
         this._formatRollupOriginalValue(propertyMeta, column.data, value)
-      );
+      )
+      .filter(v => {
+        if (v == null) return false;
+        if (typeof v === 'string' && v.trim() === '') return false;
+        return true;
+      });
   }
 
   private _formatRollupOriginalValue(

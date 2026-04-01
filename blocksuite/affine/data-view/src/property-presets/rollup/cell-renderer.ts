@@ -366,8 +366,157 @@ const RollupSettingsUni = createUniComponentFromWebComponent<{
   column: TableProperty;
 }>(RollupSettings);
 
+function rollupScalarIsEmpty(v: unknown): boolean {
+  if (v == null) return true;
+  if (typeof v === 'string' && v.trim() === '') return true;
+  if (Array.isArray(v) && v.length === 0) return true;
+  return false;
+}
+
+function dedupeTagIdsPreserveOrder(ids: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const id of ids) {
+    if (!seen.has(id)) {
+      seen.add(id);
+      out.push(id);
+    }
+  }
+  return out;
+}
+
+export function extractRollupTagIds(
+  columnType: 'select' | 'multi-select',
+  rawValues: unknown[]
+): string[] {
+  const tagIds: string[] = [];
+  for (const raw of rawValues) {
+    if (columnType === 'select') {
+      if (typeof raw === 'string' && raw) {
+        tagIds.push(raw);
+      }
+      continue;
+    }
+
+    if (Array.isArray(raw)) {
+      for (const id of raw) {
+        if (typeof id === 'string' && id) {
+          tagIds.push(id);
+        }
+      }
+    }
+  }
+  return dedupeTagIdsPreserveOrder(tagIds);
+}
+
+/** Mirror database getCell raw value; keeps data-view free of @blocksuite/affine/blocks/database. */
+function getRollupTargetCellRawValue(
+  targetDb: {
+    props: {
+      cells$: { value: Record<string, Record<string, { value?: unknown }>> };
+    };
+  },
+  rowId: string,
+  columnId: string
+): unknown {
+  if (columnId === 'title') {
+    return rowId;
+  }
+  const yRow = targetDb.props.cells$.value[rowId];
+  const yCell = yRow?.[columnId] ?? null;
+  return yCell?.value;
+}
+
 export class RollupCell extends BaseCellRenderer<any> {
+  private renderRollupShowOriginalTags(): TemplateResult | undefined {
+    const data = this.cell.property.data$.value as {
+      calculation?: string;
+      relationPropertyId?: string;
+      targetPropertyId?: string;
+    };
+    if (data.calculation !== 'show_original') {
+      return undefined;
+    }
+    if (!data.relationPropertyId || !data.targetPropertyId) {
+      return undefined;
+    }
+
+    const ds = this.view.manager.dataSource as unknown as {
+      propertyDataGet: (id: string) => Record<string, unknown>;
+      cellValueGet: (rowId: string, propId: string) => unknown;
+      doc: Store;
+    };
+    const relationPayload = ds.propertyDataGet(data.relationPropertyId) as {
+      targetDatabaseId?: string;
+    };
+    const targetDbId = relationPayload?.targetDatabaseId;
+    if (!targetDbId) {
+      return undefined;
+    }
+
+    const targetDb = ds.doc.getBlock(targetDbId)?.model as unknown as {
+      props: {
+        columns$: { value: Array<{ id: string; type: string; data: any }> };
+        cells$: { value: Record<string, Record<string, { value?: unknown }>> };
+      };
+    } | null;
+    if (!targetDb) {
+      return undefined;
+    }
+
+    void targetDb.props.columns$.value;
+    const column = targetDb.props.columns$.value.find(
+      c => c.id === data.targetPropertyId
+    );
+    if (
+      !column ||
+      (column.type !== 'select' && column.type !== 'multi-select')
+    ) {
+      return undefined;
+    }
+
+    const relationIds = ds.cellValueGet(
+      this.row.rowId,
+      data.relationPropertyId
+    ) as string[] | null;
+    if (!relationIds?.length) {
+      return html``;
+    }
+
+    const options = column.data?.options ?? [];
+    const rawValues: unknown[] = [];
+
+    for (const rid of relationIds) {
+      void targetDb.props.cells$.value[rid];
+      const raw = getRollupTargetCellRawValue(
+        targetDb,
+        rid,
+        data.targetPropertyId
+      );
+      rawValues.push(raw);
+    }
+
+    const deduped = extractRollupTagIds(column.type, rawValues);
+    if (deduped.length === 0) {
+      return html``;
+    }
+
+    return html`
+      <div style="padding: 4px 0;">
+        <affine-multi-tag-view
+          .value="${deduped}"
+          .options="${options}"
+        ></affine-multi-tag-view>
+      </div>
+    `;
+  }
+
   override render() {
+    const tagBlock = this.renderRollupShowOriginalTags();
+    if (tagBlock !== undefined) {
+      return tagBlock;
+    }
+
     if (
       this.value == null ||
       (Array.isArray(this.value) && this.value.length === 0)
@@ -383,11 +532,18 @@ export class RollupCell extends BaseCellRenderer<any> {
     }
 
     if (Array.isArray(this.value)) {
-      const displayValues = this.value.slice(0, 5);
-      const remaining = this.value.length - 5;
+      const displayValues = this.value.filter(v => !rollupScalarIsEmpty(v));
+      if (displayValues.length === 0) {
+        return html`<span
+          style="color: var(--affine-placeholder-color); opacity: 0.5;"
+          >—</span
+        >`;
+      }
+      const slice = displayValues.slice(0, 5);
+      const remaining = displayValues.length - 5;
       return html`
         <div style="display: flex; gap: 4px; flex-wrap: wrap; padding: 4px 0;">
-          ${displayValues.map(
+          ${slice.map(
             v => html`
               <div
                 style="padding: 2px 6px; background: var(--affine-background-secondary-color); border: 1px solid var(--affine-border-color); border-radius: 4px; font-size: 12px; color: var(--affine-text-primary-color); white-space: nowrap;"
@@ -426,8 +582,9 @@ export class RollupCell extends BaseCellRenderer<any> {
         const targetDbId = relationData?.targetDatabaseId;
         const store = (dataSource as any).doc;
         const targetDb = store?.getBlock(targetDbId)?.model as any;
-        const targetType = (targetDb?.props.columns as any[])?.find(
-          col => col.id === data.targetPropertyId
+        void targetDb?.props.columns$.value;
+        const targetType = targetDb?.props.columns$.value?.find(
+          (col: { id: string }) => col.id === data.targetPropertyId
         )?.type;
 
         if (targetType === 'date') {
@@ -439,6 +596,13 @@ export class RollupCell extends BaseCellRenderer<any> {
           </div>`;
         }
       }
+    }
+
+    if (rollupScalarIsEmpty(this.value)) {
+      return html`<span
+        style="color: var(--affine-placeholder-color); opacity: 0.5;"
+        >—</span
+      >`;
     }
 
     return html`<div

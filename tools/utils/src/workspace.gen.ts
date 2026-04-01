@@ -439,6 +439,7 @@ export const PackageList = [
     location: 'blocksuite/affine/blocks/table',
     name: '@blocksuite/affine-block-table',
     workspaceDependencies: [
+      'blocksuite/affine/blocks/database',
       'blocksuite/affine/components',
       'blocksuite/affine/ext-loader',
       'blocksuite/affine/inlines/preset',

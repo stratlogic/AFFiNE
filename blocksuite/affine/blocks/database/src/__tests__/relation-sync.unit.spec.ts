@@ -317,5 +317,59 @@ describe('DatabaseBlockDataSource — Relations & Rollups', () => {
         'In Progress',
       ]);
     });
+
+    test('show_original returns multi-select labels instead of option ids', () => {
+      const relId = 'rel-1';
+      dbA.props.columns.push({
+        id: relId,
+        type: 'relation',
+        name: 'Related',
+        data: { targetDatabaseId: 'db-b' },
+      });
+
+      const tagsColId = 'tags-1';
+      dbB.props.columns.push({
+        id: tagsColId,
+        type: 'multi-select',
+        name: 'Tags',
+        data: {
+          options: [
+            { id: 'opt_a', value: 'Alpha', color: 'gray' },
+            { id: 'opt_b', value: 'Beta', color: 'blue' },
+          ],
+        },
+      });
+
+      const rollupId = 'roll-multi';
+      dbA.props.columns.push({
+        id: rollupId,
+        type: 'rollup',
+        name: 'Tags labels',
+        data: {
+          relationPropertyId: relId,
+          targetPropertyId: tagsColId,
+          calculation: 'show_original',
+        } as RollupPropertyData,
+      });
+
+      dbA.children.push({ id: 'row-a1' });
+      dbA.childMap.value.set('row-a1', 0);
+      dbB.children.push({ id: 'row-b1' }, { id: 'row-b2' });
+      dbB.childMap.value.set('row-b1', 0);
+      dbB.childMap.value.set('row-b2', 1);
+
+      dbB.props.cells['row-b1'] = {
+        [tagsColId]: { value: ['opt_a', 'opt_b'] },
+      };
+      dbB.props.cells['row-b2'] = { [tagsColId]: { value: ['opt_a'] } };
+      dbA.props.cells['row-a1'] = {
+        [relId]: { value: ['row-b1', 'row-b2'] },
+      };
+
+      expect(dsA.cellValueGet('row-a1', rollupId)).toEqual([
+        'Alpha,Beta',
+        'Alpha',
+      ]);
+    });
   });
 });
