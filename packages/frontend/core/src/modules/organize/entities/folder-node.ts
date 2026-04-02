@@ -7,6 +7,10 @@ import { map, of, switchMap } from 'rxjs';
 
 import type { FolderStore } from '../stores/folder';
 
+function isTeamspaceVirtualRoot(id: string | null): id is string {
+  return typeof id === 'string' && id.startsWith('teamspace:');
+}
+
 export class FolderNode extends Entity<{
   id: string | null;
 }> {
@@ -20,7 +24,9 @@ export class FolderNode extends Entity<{
     parentId?: string | null;
   } | null>(this.store.watchNodeInfo(this.id ?? ''), null);
   type$ = this.info$.map(info =>
-    this.id === null ? 'folder' : (info?.type ?? '')
+    this.id === null || isTeamspaceVirtualRoot(this.id)
+      ? 'folder'
+      : (info?.type ?? '')
   );
   data$ = this.info$.map(info => info?.data);
   name$ = this.info$.map(info => (info?.type === 'folder' ? info.data : ''));
@@ -79,8 +85,11 @@ export class FolderNode extends Entity<{
   }
 
   filterInvalidChildren(child: { type: string }): boolean {
-    if (this.id === null && child.type !== 'folder') {
-      return false; // root node can only have folders
+    if (
+      (this.id === null || isTeamspaceVirtualRoot(this.id)) &&
+      child.type !== 'folder'
+    ) {
+      return false; // root / teamspace virtual root only lists folder children
     }
     return true;
   }
@@ -100,6 +109,9 @@ export class FolderNode extends Entity<{
     if (this.id === null) {
       throw new Error('Cannot create link on root node');
     }
+    if (isTeamspaceVirtualRoot(this.id)) {
+      throw new Error('Cannot create link on teamspace root node');
+    }
     if (this.type$.value !== 'folder') {
       throw new Error('Cannot create link on non-folder node');
     }
@@ -109,6 +121,9 @@ export class FolderNode extends Entity<{
   delete() {
     if (this.id === null) {
       throw new Error('Cannot delete root node');
+    }
+    if (isTeamspaceVirtualRoot(this.id)) {
+      throw new Error('Cannot delete teamspace root node');
     }
     if (this.type$.value === 'folder') {
       this.store.removeFolder(this.id);
@@ -124,6 +139,9 @@ export class FolderNode extends Entity<{
   rename(name: string) {
     if (this.id === null) {
       throw new Error('Cannot rename root node');
+    }
+    if (isTeamspaceVirtualRoot(this.id)) {
+      throw new Error('Cannot rename teamspace root node');
     }
     this.store.renameNode(this.id, name);
   }

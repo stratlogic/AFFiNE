@@ -1,9 +1,13 @@
 import test from 'ava';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, WorkspaceMemberStatus } from '@prisma/client';
 
 import { createModule } from '../../../__tests__/create-module';
 import { Mockers } from '../../../__tests__/mocks';
-import { BadRequest, MemberNotFoundInSpace, SpaceAccessDenied } from '../../../base';
+import {
+  BadRequest,
+  MemberNotFoundInSpace,
+  SpaceAccessDenied,
+} from '../../../base';
 import { TeamspaceRole } from '../../../models';
 import { TeamspaceModule } from '../index';
 import { TeamspaceService } from '../service';
@@ -38,7 +42,8 @@ test('assertCanViewTeamspace blocks non-member for private teamspace', async t =
   await teamspaceService.addMember(workspace.id, ts.id, owner.id);
 
   await t.throwsAsync(
-    () => teamspaceService.assertCanViewTeamspace(workspace.id, ts.id, outsider.id),
+    () =>
+      teamspaceService.assertCanViewTeamspace(workspace.id, ts.id, outsider.id),
     { instanceOf: SpaceAccessDenied }
   );
 });
@@ -65,6 +70,26 @@ test('addMember requires active workspace membership', async t => {
 
   await t.throwsAsync(
     () => teamspaceService.addMember(workspace.id, ts.id, outsider.id),
+    { instanceOf: MemberNotFoundInSpace }
+  );
+});
+
+test('addMember rejects pending workspace invitee', async t => {
+  const pendingUser = await module.create(Mockers.User);
+  await module.create(Mockers.WorkspaceUser, {
+    workspaceId: workspace.id,
+    userId: pendingUser.id,
+    status: WorkspaceMemberStatus.Pending,
+  });
+
+  const ts = await teamspaceService.createTeamspace(workspace.id, {
+    name: `pending-ws-member-${Date.now()}`,
+    visibility: 'Open',
+  });
+  await teamspaceService.addMember(workspace.id, ts.id, owner.id);
+
+  await t.throwsAsync(
+    () => teamspaceService.addMember(workspace.id, ts.id, pendingUser.id),
     { instanceOf: MemberNotFoundInSpace }
   );
 });

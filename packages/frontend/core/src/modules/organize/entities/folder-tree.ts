@@ -20,6 +20,9 @@ export class FolderTree extends Entity {
     return LiveData.from(
       this.folderStore.watchNodeInfo(id).pipe(
         map(info => {
+          if (id.startsWith('teamspace:')) {
+            return this.framework.createEntity(FolderNode, { id });
+          }
           if (!info) {
             return null;
           }

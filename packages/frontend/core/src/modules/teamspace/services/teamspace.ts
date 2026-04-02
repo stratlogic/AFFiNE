@@ -70,6 +70,30 @@ const removeDocFromTeamspaceMutation = {
   }`,
 };
 
+const teamspaceInviteLookupUserQuery = {
+  id: 'teamspaceInviteLookupUserQuery' as const,
+  op: 'teamspaceInviteLookupUser',
+  query: `query teamspaceInviteLookupUser($email: String!) {
+    user(email: $email) {
+      __typename
+      ... on UserType {
+        id
+      }
+      ... on LimitedUserType {
+        email
+      }
+    }
+  }`,
+};
+
+const addTeamspaceMemberMutation = {
+  id: 'addTeamspaceMemberMutation' as const,
+  op: 'addTeamspaceMember',
+  query: `mutation addTeamspaceMember($workspaceId: ID!, $teamspaceId: ID!, $userId: ID!, $role: TeamspaceRole) {
+    addTeamspaceMember(workspaceId: $workspaceId, teamspaceId: $teamspaceId, userId: $userId, role: $role)
+  }`,
+};
+
 export class TeamspaceService extends Service {
   public accessibleDocIds$ = new LiveData<string[] | null>(null);
   public teamspaces$ = new LiveData<Teamspace[]>([]);
@@ -104,7 +128,9 @@ export class TeamspaceService extends Service {
           variables: { workspaceId },
         } as any)) as any;
 
-        this.accessibleDocIds$.next((res?.accessibleDocIds as string[]) || null);
+        this.accessibleDocIds$.next(
+          (res?.accessibleDocIds as string[]) || null
+        );
       } catch (e) {
         console.warn('Failed to fetch accessible doc ids', e);
         // Ignore or default to null
@@ -207,6 +233,58 @@ export class TeamspaceService extends Service {
     }
   }
 
+  /**
+   * Path A: resolve email via `user(email)` (same-workspace scope), then `addTeamspaceMember`.
+   * Target must already be an active workspace member.
+   */
+  async addTeamspaceMemberByEmail(
+    workspaceId: string,
+    teamspaceId: string,
+    input: { email: string; role?: 'Owner' | 'Admin' | 'Member' | 'Viewer' }
+  ): Promise<void> {
+    const server = this.workspaceServerService.server;
+    if (!server) {
+      throw new Error('Teamspaces require a cloud workspace');
+    }
+
+    const normalized = input.email.trim().toLowerCase();
+    if (!normalized) {
+      throw new Error('Email is required');
+    }
+
+    const lookup = (await server.gql({
+      query: teamspaceInviteLookupUserQuery,
+      variables: { email: normalized },
+    } as any)) as {
+      user?: { __typename: string; id?: string } | null;
+    };
+
+    const user = lookup?.user;
+    const userId =
+      user?.__typename === 'UserType' && user.id ? user.id : undefined;
+
+    if (!userId) {
+      const err = new Error('USER_NOT_FOUND_FOR_TEAMSPACE') as Error & {
+        code: string;
+      };
+      err.code = 'USER_NOT_FOUND_FOR_TEAMSPACE';
+      throw err;
+    }
+
+    await server.gql({
+      query: addTeamspaceMemberMutation,
+      variables: {
+        workspaceId,
+        teamspaceId,
+        userId,
+        role: input.role ?? 'Member',
+      },
+    } as any);
+
+    await this.fetchTeamspaces(workspaceId);
+    await this.fetchAccessibleDocIds(workspaceId);
+  }
+
   async removeDocFromTeamspace(
     workspaceId: string,
     docId: string
@@ -229,4 +307,3 @@ export class TeamspaceService extends Service {
     }
   }
 }
-

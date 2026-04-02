@@ -10,6 +10,10 @@ export const RelationPropertySchema = zod.object({
   isBidirectional: zod.boolean().default(true),
   isReverse: zod.boolean().default(false),
   reversePropertyId: zod.string().nullable().default(null),
+  /** When set, relation targets another workspace; UI treats column as view-only (relay WIP). */
+  crossWorkspaceTargetWorkspaceId: zod.string().optional(),
+  /** Enforced read-only cell editing for relayed cross-workspace relations. */
+  crossWorkspaceRelayReadOnly: zod.boolean().optional(),
 });
 
 export type RelationPropertyData = zod.infer<typeof RelationPropertySchema>;
@@ -23,6 +27,8 @@ export const relationPropertyModelConfig = relationPropertyType.modelConfig({
       isBidirectional: true,
       isReverse: false,
       reversePropertyId: null,
+      crossWorkspaceTargetWorkspaceId: undefined,
+      crossWorkspaceRelayReadOnly: undefined,
     }),
   },
   rawValue: {

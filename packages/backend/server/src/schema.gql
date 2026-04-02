@@ -1942,6 +1942,11 @@ type Query {
   """Apply updates to a doc using LLM and return the merged markdown."""
   applyDocUpdates(docId: String!, op: String!, updates: String!, workspaceId: String!): String! @deprecated(reason: "use Mutation.applyDocUpdates")
 
+  """
+  Whether server-mediated cross-workspace database relation relay is enabled.
+  """
+  crossWorkspaceRelationRelayEnabled: Boolean!
+
   """Get current user"""
   currentUser: UserType
   error(name: ErrorNames!): ErrorDataUnion!

@@ -1,14 +1,54 @@
 /** @vitest-environment happy-dom */
 
+import { FeatureFlagService } from '@blocksuite/affine-shared/services';
+import type { Store } from '@blocksuite/store';
 import { describe, expect, it } from 'vitest';
 
 import {
   filterRelationIdsByValidSet,
   getRowLinkedPageTarget,
   getRowTitle,
+  isCrossWorkspaceRelayColumnUx,
 } from '../property-presets/relation/cell-renderer.js';
 
+function storeWithCrossWorkspaceFlag(enabled: boolean): Store {
+  return {
+    get(svc: unknown) {
+      if (svc === FeatureFlagService) {
+        return {
+          getFlag(key: string) {
+            return key === 'enable_cross_workspace_relation' ? enabled : false;
+          },
+        };
+      }
+      throw new Error('unexpected store.get');
+    },
+  } as unknown as Store;
+}
+
 describe('relation cell renderer edge cases', () => {
+  it('isCrossWorkspaceRelayColumnUx requires flag and metadata', () => {
+    const storeOff = storeWithCrossWorkspaceFlag(false);
+    expect(
+      isCrossWorkspaceRelayColumnUx(storeOff, {
+        crossWorkspaceRelayReadOnly: true,
+      })
+    ).toBe(false);
+
+    const storeOn = storeWithCrossWorkspaceFlag(true);
+    expect(
+      isCrossWorkspaceRelayColumnUx(storeOn, {
+        crossWorkspaceRelayReadOnly: true,
+      })
+    ).toBe(true);
+    expect(
+      isCrossWorkspaceRelayColumnUx(storeOn, {
+        crossWorkspaceTargetWorkspaceId: 'ws-1',
+      })
+    ).toBe(true);
+    expect(isCrossWorkspaceRelayColumnUx(storeOn, {})).toBe(false);
+  });
+
   it('getRowTitle returns (deleted) when row is missing', () => {
     const store = {
       getBlock: () => null,

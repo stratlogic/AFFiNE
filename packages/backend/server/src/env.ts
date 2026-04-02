@@ -97,6 +97,14 @@ export class Env implements AppEnv {
   version = pkg.version;
   projectRoot = resolve(fileURLToPath(import.meta.url), '../../');
 
+  /**
+   * Opt-in for server-mediated cross-workspace database relation relay (see
+   * docs/architecture/adr-cross-workspace-relation-relay.md). Default off.
+   */
+  get crossWorkspaceRelationRelayEnabled() {
+    return process.env.AFFINE_CROSS_WORKSPACE_RELATION_RELAY === 'true';
+  }
+
   get selfhosted() {
     return this.DEPLOYMENT_TYPE === DeploymentType.Selfhosted;
   }

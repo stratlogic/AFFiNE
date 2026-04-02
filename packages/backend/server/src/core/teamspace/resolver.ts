@@ -1,10 +1,4 @@
-import {
-  Args,
-  ID,
-  Mutation,
-  Query,
-  Resolver,
-} from '@nestjs/graphql';
+import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
 
 import { AFFiNELogger } from '../../base';
 import { WorkspaceRole, TeamspaceVisibility } from '../../models';
@@ -57,7 +51,7 @@ export class TeamspaceResolver {
           ts.id,
           user.id
         );
-        
+
         let docs = ts.docs;
         if (ts.visibility === TeamspaceVisibility.Closed && !currentUserRole) {
           docs = []; // Hide content for non-members in Closed teamspaces
@@ -90,8 +84,7 @@ export class TeamspaceResolver {
       user.id
     );
 
-    const teamspace =
-      await this.teamspaceService.getTeamspace(teamspaceId);
+    const teamspace = await this.teamspaceService.getTeamspace(teamspaceId);
     if (!teamspace) return null;
 
     // Transform members
@@ -152,10 +145,7 @@ export class TeamspaceResolver {
     @Args('workspaceId', { type: () => ID }) workspaceId: string,
     @Args('input') input: CreateTeamspaceInput
   ): Promise<TeamspaceType> {
-    await this.teamspaceService.assertCanManageTeamspaces(
-      workspaceId,
-      user.id
-    );
+    await this.teamspaceService.assertCanManageTeamspaces(workspaceId, user.id);
 
     const teamspace = await this.teamspaceService.createTeamspaceWithOwner(
       workspaceId,
@@ -201,10 +191,7 @@ export class TeamspaceResolver {
     @Args('workspaceId', { type: () => ID }) workspaceId: string,
     @Args('teamspaceId', { type: () => ID }) teamspaceId: string
   ): Promise<boolean> {
-    await this.teamspaceService.assertCanManageTeamspaces(
-      workspaceId,
-      user.id
-    );
+    await this.teamspaceService.assertCanManageTeamspaces(workspaceId, user.id);
 
     await this.teamspaceService.deleteTeamspace(teamspaceId);
 
@@ -223,7 +210,10 @@ export class TeamspaceResolver {
     @Args('workspaceId', { type: () => ID }) workspaceId: string,
     @Args('teamspaceId', { type: () => ID }) teamspaceId: string,
     @Args('userId', { type: () => ID }) targetUserId: string,
-    @Args('role', { type: () => TeamspaceRole, defaultValue: TeamspaceRole.Member })
+    @Args('role', {
+      type: () => TeamspaceRole,
+      defaultValue: TeamspaceRole.Member,
+    })
     role: TeamspaceRole
   ): Promise<boolean> {
     await this.teamspaceService.assertCanManageTeamspace(
@@ -340,9 +330,7 @@ export class TeamspaceResolver {
 
     await this.teamspaceService.removeDocFromTeamspace(docId);
 
-    this.logger.log(
-      `Doc ${docId} removed from teamspace by ${user.id}`
-    );
+    this.logger.log(`Doc ${docId} removed from teamspace by ${user.id}`);
 
     return true;
   }
@@ -364,5 +352,14 @@ export class TeamspaceResolver {
 
     const docs = await this.teamspaceService.getTeamspaceDocs(teamspaceId);
     return docs as unknown as TeamspaceDocType[];
+  }
+
+  @Query(() => Boolean, {
+    name: 'crossWorkspaceRelationRelayEnabled',
+    description:
+      'Whether server-mediated cross-workspace database relation relay is enabled.',
+  })
+  crossWorkspaceRelationRelayEnabled(): boolean {
+    return globalThis.env.crossWorkspaceRelationRelayEnabled;
   }
 }

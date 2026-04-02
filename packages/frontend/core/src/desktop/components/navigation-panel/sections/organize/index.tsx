@@ -7,6 +7,7 @@ import {
 import { NavigationPanelService } from '@affine/core/modules/navigation-panel';
 import {
   type FolderNode,
+  getDefaultNewFolderName,
   OrganizeService,
 } from '@affine/core/modules/organize';
 import type { AffineDNDData } from '@affine/core/types/dnd';
@@ -40,14 +41,14 @@ export const NavigationPanelOrganize = () => {
 
   const handleCreateFolder = useCallback(() => {
     const newFolderId = rootFolder.createFolder(
-      'New Folder',
+      getDefaultNewFolderName(t),
       rootFolder.indexAt('before')
     );
     track.$.navigationPanel.organize.createOrganizeItem({ type: 'folder' });
     setNewFolderId(newFolderId);
     navigationPanelService.setCollapsed(path, false);
     return newFolderId;
-  }, [navigationPanelService, path, rootFolder]);
+  }, [navigationPanelService, path, rootFolder, t]);
 
   const handleOnChildrenDrop = useCallback(
     (data: DropTargetDropEvent<AffineDNDData>, node?: FolderNode) => {

@@ -9,6 +9,7 @@ import { FolderStore } from './stores/folder';
 
 export type { FolderNode } from './entities/folder-node';
 export { OrganizeService } from './services/organize';
+export { getDefaultNewFolderName } from './utils/default-new-folder-name';
 
 export function configureOrganizeModule(framework: Framework) {
   framework

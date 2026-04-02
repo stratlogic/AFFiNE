@@ -304,3 +304,34 @@ test('should allocate seats for AllocatingSeat and NeedMoreSeat members', async 
 
   t.is(count, 3);
 });
+
+test('hasSharedWorkspace is true when both users are Accepted in same workspace', async t => {
+  const me = await module.create(Mockers.User);
+  const other = await module.create(Mockers.User);
+  const workspace = await module.create(Mockers.Workspace, { owner: me });
+  await module.create(Mockers.WorkspaceUser, {
+    workspaceId: workspace.id,
+    userId: other.id,
+  });
+
+  t.true(await models.workspaceUser.hasSharedWorkspace(me.id, other.id));
+  t.true(await models.workspaceUser.hasSharedWorkspace(other.id, me.id));
+});
+
+test('hasSharedWorkspace is false when other user is only Pending in shared workspace', async t => {
+  const me = await module.create(Mockers.User);
+  const other = await module.create(Mockers.User);
+  const workspace = await module.create(Mockers.Workspace, { owner: me });
+  await module.create(Mockers.WorkspaceUser, {
+    workspaceId: workspace.id,
+    userId: other.id,
+    status: WorkspaceMemberStatus.Pending,
+  });
+
+  t.false(await models.workspaceUser.hasSharedWorkspace(me.id, other.id));
+});
+
+test('hasSharedWorkspace is true for same user id', async t => {
+  const me = await module.create(Mockers.User);
+  t.true(await models.workspaceUser.hasSharedWorkspace(me.id, me.id));
+});

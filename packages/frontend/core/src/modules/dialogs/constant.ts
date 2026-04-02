@@ -69,4 +69,9 @@ export type WORKSPACE_DIALOG_SCHEMA = {
     isWorkspaceFile?: boolean;
   };
   'create-teamspace': () => void;
+  'add-teamspace-member': (props: {
+    workspaceId: string;
+    teamspaceId: string;
+    teamspaceName: string;
+  }) => void;
 };

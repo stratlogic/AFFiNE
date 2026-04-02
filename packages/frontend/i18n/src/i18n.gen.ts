@@ -4913,6 +4913,14 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.rootAppSidebar.organize.add-folder"](): string;
     /**
+      * `New doc`
+      */
+    ["com.affine.rootAppSidebar.organize.create-doc"](): string;
+    /**
+      * `New folder`
+      */
+    ["com.affine.rootAppSidebar.organize.create-folder"](): string;
+    /**
       * `New Collection`
       */
     ["com.affine.rootAppSidebar.collection.new"](): string;

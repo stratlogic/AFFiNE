@@ -8,6 +8,7 @@ import {
   renderSubMenu,
   subMenuMiddleware,
 } from '@blocksuite/affine-components/context-menu';
+import { FeatureFlagService } from '@blocksuite/affine-shared/services';
 import { SignalWatcher, WithDisposable } from '@blocksuite/global/lit';
 import { ShadowlessElement } from '@blocksuite/std';
 import type { Store } from '@blocksuite/store';
@@ -50,6 +51,24 @@ function getLinkedReferenceFromText(
     }
   }
   return null;
+}
+
+/** Cross-workspace relay column UX is active only when the Affine/Blocksuite flag is on and column carries relay metadata. */
+export function isCrossWorkspaceRelayColumnUx(
+  store: Store,
+  data: {
+    crossWorkspaceRelayReadOnly?: boolean;
+    crossWorkspaceTargetWorkspaceId?: string;
+  }
+): boolean {
+  if (
+    !store.get(FeatureFlagService).getFlag('enable_cross_workspace_relation')
+  ) {
+    return false;
+  }
+  if (data.crossWorkspaceRelayReadOnly) return true;
+  const ws = data.crossWorkspaceTargetWorkspaceId;
+  return typeof ws === 'string' && ws.length > 0;
 }
 
 function getLinkedReferenceTitle(
@@ -288,6 +307,16 @@ export class RelationSettings extends SignalWatcher(
   override render() {
     const data = this.column.data$.value as any;
     const store = (this.column.view.manager.dataSource as any).doc as Store;
+    if (isCrossWorkspaceRelayColumnUx(store, data)) {
+      return html`
+        <div
+          style="font-size: 12px; color: var(--affine-text-secondary-color); padding: 8px;"
+        >
+          View-only relation column (cross-workspace relay). Column settings are
+          locked.
+        </div>
+      `;
+    }
     const databases = findAllDatabases(store);
     const targetDatabase = data.targetDatabaseId
       ? store.getBlock(data.targetDatabaseId)?.model
@@ -407,8 +436,15 @@ export class RelationCell extends BaseCellRenderer<string[]> {
   // We don't have CSS variables yet, so using inline styles for now
 
   override render() {
-    const targetDatabaseId = this.property.data$.value
-      .targetDatabaseId as string;
+    const dataSource = this.view.manager.dataSource as any;
+    const store = dataSource.doc as Store;
+    const propData = this.property.data$.value as {
+      targetDatabaseId?: string;
+      crossWorkspaceRelayReadOnly?: boolean;
+      crossWorkspaceTargetWorkspaceId?: string;
+    };
+    const targetDatabaseId = propData.targetDatabaseId as string;
+    const relayUx = isCrossWorkspaceRelayColumnUx(store, propData);
 
     if (!targetDatabaseId) {
       return html`
@@ -427,8 +463,6 @@ export class RelationCell extends BaseCellRenderer<string[]> {
 
     // Read mode: auto-remove deleted/orphan relation IDs so chips don't
     // keep showing stale titles.
-    const dataSource = this.view.manager.dataSource as any;
-    const store = dataSource.doc as Store;
     let relationIds = this.value ?? [];
 
     const targetDb = store.getBlock(targetDatabaseId)?.model as any;
@@ -450,6 +484,12 @@ export class RelationCell extends BaseCellRenderer<string[]> {
     // Read mode
     return html`
       <div style="display: flex; gap: 4px; flex-wrap: wrap; padding: 4px 0;">
+        ${relayUx
+          ? html`<span
+              style="font-size: 10px; color: var(--affine-text-secondary-color); width: 100%;"
+              >View only</span
+            >`
+          : null}
         ${relationIds.length === 0
           ? html`<span style="color: var(--affine-placeholder-color);"
               >Empty</span
@@ -459,9 +499,12 @@ export class RelationCell extends BaseCellRenderer<string[]> {
               id => id,
               id => html`
                 <div
-                  style="padding: 2px 6px; background: var(--affine-background-tertiary-color); border-radius: 4px; font-size: 12px; cursor: pointer;"
+                  style="padding: 2px 6px; background: var(--affine-background-tertiary-color); border-radius: 4px; font-size: 12px; cursor: ${relayUx
+                    ? 'default'
+                    : 'pointer'};"
                   @click="${(e: MouseEvent) => {
                     e.stopPropagation();
+                    if (relayUx) return;
                     this.dispatchEvent(
                       new CustomEvent('affine-database-row-peek-request', {
                         detail: {
@@ -486,8 +529,18 @@ export class RelationCell extends BaseCellRenderer<string[]> {
   }
 
   override afterEnterEditingMode() {
-    const targetDatabaseId = this.property.data$.value
-      .targetDatabaseId as string;
+    const store = (this.view.manager.dataSource as any).doc as Store;
+    const propData = this.property.data$.value as {
+      targetDatabaseId?: string;
+      crossWorkspaceRelayReadOnly?: boolean;
+      crossWorkspaceTargetWorkspaceId?: string;
+    };
+    if (isCrossWorkspaceRelayColumnUx(store, propData)) {
+      this.selectCurrentCell(false);
+      return;
+    }
+
+    const targetDatabaseId = propData.targetDatabaseId as string;
     if (!targetDatabaseId) {
       this.selectCurrentCell(false);
       return;

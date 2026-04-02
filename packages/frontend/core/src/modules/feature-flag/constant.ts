@@ -304,6 +304,15 @@ export const AFFINE_FLAGS = {
     configurable: true,
     defaultState: false,
   },
+  enable_cross_workspace_relation: {
+    category: 'blocksuite',
+    bsFlag: 'enable_cross_workspace_relation',
+    displayName: 'Cross-workspace relation relay (experimental)',
+    description:
+      'When enabled with server AFFINE_CROSS_WORKSPACE_RELATION_RELAY, prepares cross-workspace relation UX; relay APIs are incremental.',
+    configurable: isCanaryBuild,
+    defaultState: false,
+  },
 } satisfies { [key in string]: FlagInfo };
 
 // oxlint-disable-next-line no-redeclare

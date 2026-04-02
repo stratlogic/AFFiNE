@@ -317,6 +317,7 @@ export class WorkspaceUserModel extends BaseModel {
           permissions: {
             some: {
               userId: otherUserId,
+              status: WorkspaceMemberStatus.Accepted,
             },
           },
         },

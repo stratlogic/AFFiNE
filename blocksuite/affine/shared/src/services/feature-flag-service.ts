@@ -21,6 +21,8 @@ export interface BlockSuiteFlags {
   enable_turbo_renderer: boolean;
   enable_dom_renderer: boolean;
   enable_pdfmake_export: boolean;
+  /** Cross-workspace relation relay UX (see ADR cross-workspace-relation-relay). */
+  enable_cross_workspace_relation: boolean;
 }
 
 export class FeatureFlagService extends StoreExtension {
@@ -46,6 +48,7 @@ export class FeatureFlagService extends StoreExtension {
     enable_turbo_renderer: false,
     enable_dom_renderer: false,
     enable_pdfmake_export: false,
+    enable_cross_workspace_relation: false,
   });
 
   setFlag(key: keyof BlockSuiteFlags, value: boolean) {

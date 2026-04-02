@@ -16,6 +16,7 @@ import { FeatureFlagService } from '@affine/core/modules/feature-flag';
 import { NavigationPanelService } from '@affine/core/modules/navigation-panel';
 import {
   type FolderNode,
+  getDefaultNewFolderName,
   OrganizeService,
 } from '@affine/core/modules/organize';
 import { WorkspaceService } from '@affine/core/modules/workspace';
@@ -597,7 +598,7 @@ const NavigationPanelFolderNodeFolder = ({
 
   const handleCreateSubfolder = useCallback(() => {
     const newFolderId = node.createFolder(
-      t['com.affine.rootAppSidebar.organize.new-folders'](),
+      getDefaultNewFolderName(t),
       node.indexAt('before')
     );
     track.$.navigationPanel.organize.createOrganizeItem({ type: 'folder' });

@@ -1,4 +1,5 @@
 import { getUserQuery } from '@affine/graphql';
+import { WorkspaceMemberStatus } from '@prisma/client';
 import Sinon from 'sinon';
 
 import { ThrottlerStorage } from '../../../base/throttler';
@@ -65,6 +66,29 @@ e2e('user(email) should return user within workspace scope', async t => {
     t.is(res.user.id, other.id);
   }
 });
+
+e2e(
+  'user(email) should return null when teammate is only Pending in workspace',
+  async t => {
+    await app.logout();
+    const me = await app.signup();
+    const pendingPeer = await app.create(Mockers.User);
+    const ws = await app.create(Mockers.Workspace, { owner: me });
+
+    await app.create(Mockers.WorkspaceUser, {
+      workspaceId: ws.id,
+      userId: pendingPeer.id,
+      status: WorkspaceMemberStatus.Pending,
+    });
+
+    const res = await app.gql({
+      query: getUserQuery,
+      variables: { email: pendingPeer.email },
+    });
+
+    t.is(res.user, null);
+  }
+);
 
 e2e('user(email) should be rate limited', async t => {
   await app.logout();

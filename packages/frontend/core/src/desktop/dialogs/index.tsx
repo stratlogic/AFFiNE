@@ -23,6 +23,7 @@ import { TagSelectorDialog } from './selectors/tag';
 import { SettingDialog } from './setting';
 import { SignInDialog } from './sign-in';
 import { VerifyEmailDialog } from './verify-email';
+import { AddTeamspaceMemberDialog } from './add-teamspace-member';
 import { CreateTeamspaceDialog } from './create-teamspace';
 
 const GLOBAL_DIALOGS = {
@@ -50,6 +51,7 @@ const WORKSPACE_DIALOGS = {
   setting: SettingDialog,
   import: ImportDialog,
   'create-teamspace': CreateTeamspaceDialog,
+  'add-teamspace-member': AddTeamspaceMemberDialog,
 } satisfies {
   [key in keyof WORKSPACE_DIALOG_SCHEMA]?: React.FC<
     DialogComponentProps<WORKSPACE_DIALOG_SCHEMA[key]>
