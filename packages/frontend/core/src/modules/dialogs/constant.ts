@@ -68,4 +68,5 @@ export type WORKSPACE_DIALOG_SCHEMA = {
     entryId?: string;
     isWorkspaceFile?: boolean;
   };
+  'create-teamspace': () => void;
 };

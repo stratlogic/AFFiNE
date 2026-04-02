@@ -60,18 +60,47 @@ export const DEFAULT_DEV_SERVER_CONFIG: WebpackDevServerConfiguration = {
     {
       context: '/api',
       target: 'http://localhost:3010',
+      changeOrigin: true,
+      proxyTimeout: 30_000,
+      timeout: 30_000,
       logLevel: httpProxyMiddlewareLogLevel,
+      on: {
+        error: (err: NodeJS.ErrnoException, _req: unknown, _res: unknown) => {
+          // ECONNRESET / EPIPE are expected when the browser closes the connection
+          // before the proxy finishes. Suppress them to keep the console clean.
+          if (err.code === 'ECONNRESET' || err.code === 'EPIPE') return;
+          console.error('[proxy /api]', err.message);
+        },
+      },
     },
     {
       context: '/socket.io',
       target: 'http://localhost:3010',
+      changeOrigin: true,
       ws: true,
+      proxyTimeout: 0, // disable timeout for long-lived WebSocket connections
       logLevel: httpProxyMiddlewareLogLevel,
+      on: {
+        error: (err: NodeJS.ErrnoException, _req: unknown, _res: unknown) => {
+          // Socket disconnects are expected during dev (tab close, HMR, etc.)
+          if (err.code === 'ECONNRESET' || err.code === 'EPIPE') return;
+          console.error('[proxy /socket.io]', err.message);
+        },
+      },
     },
     {
       context: '/graphql',
       target: 'http://localhost:3010',
+      changeOrigin: true,
+      proxyTimeout: 30_000,
+      timeout: 30_000,
       logLevel: httpProxyMiddlewareLogLevel,
+      on: {
+        error: (err: NodeJS.ErrnoException, _req: unknown, _res: unknown) => {
+          if (err.code === 'ECONNRESET' || err.code === 'EPIPE') return;
+          console.error('[proxy /graphql]', err.message);
+        },
+      },
     },
   ],
 };

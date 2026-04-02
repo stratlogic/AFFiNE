@@ -23,6 +23,7 @@ import { TagSelectorDialog } from './selectors/tag';
 import { SettingDialog } from './setting';
 import { SignInDialog } from './sign-in';
 import { VerifyEmailDialog } from './verify-email';
+import { CreateTeamspaceDialog } from './create-teamspace';
 
 const GLOBAL_DIALOGS = {
   'create-workspace': CreateWorkspaceDialog,
@@ -48,6 +49,7 @@ const WORKSPACE_DIALOGS = {
   'date-selector': DateSelectorDialog,
   setting: SettingDialog,
   import: ImportDialog,
+  'create-teamspace': CreateTeamspaceDialog,
 } satisfies {
   [key in keyof WORKSPACE_DIALOG_SCHEMA]?: React.FC<
     DialogComponentProps<WORKSPACE_DIALOG_SCHEMA[key]>

@@ -25,3 +25,4 @@ export {
   type WorkspaceAction,
   WorkspaceRole,
 } from './types';
+export { TeamspaceRole } from '../../models/common/role';

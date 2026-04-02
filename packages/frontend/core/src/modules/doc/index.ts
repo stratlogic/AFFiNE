@@ -20,6 +20,7 @@ import { DocService } from './services/doc';
 import { DocsService } from './services/docs';
 import { DocPropertiesStore } from './stores/doc-properties';
 import { DocsStore } from './stores/docs';
+import { TeamspaceService } from '../teamspace';
 
 export { DocCreateMiddleware } from './providers/doc-create-middleware';
 
@@ -32,7 +33,7 @@ export function configureDocModule(framework: Framework) {
       [DocCreateMiddleware],
     ])
     .store(DocPropertiesStore, [WorkspaceService, WorkspaceDBService])
-    .store(DocsStore, [WorkspaceService, DocPropertiesStore])
+    .store(DocsStore, [WorkspaceService, DocPropertiesStore, TeamspaceService])
     .entity(DocRecord, [DocsStore, DocPropertiesStore])
     .entity(DocRecordList, [DocsStore])
     .scope(DocScope)

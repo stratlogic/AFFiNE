@@ -51,6 +51,7 @@ model User {
   AccessToken                 AccessToken[]
   workspaceCalendars          WorkspaceCalendar[]
   workspaceMemberLastAccesses WorkspaceMemberLastAccess[]
+  teamspaceMemberships        TeamspaceUserRole[]
 
   @@index([email])
   @@map("users")
@@ -155,6 +156,7 @@ model Workspace {
   workspaceAdminStatsDaily   WorkspaceAdminStatsDaily[]
   workspaceDocViewDaily      WorkspaceDocViewDaily[]
   workspaceMemberLastAccess  WorkspaceMemberLastAccess[]
+  teamspaces                 Teamspace[]
 
   @@index([lastCheckEmbeddings])
   @@index([createdAt])
@@ -1135,4 +1137,63 @@ model CalendarEventInstance {
   @@unique([calendarEventId, recurrenceId])
   @@index([calendarEventId, startAtUtc])
   @@map("calendar_event_instances")
+}
+
+// ===== Teamspace Models =====
+
+enum TeamspaceVisibility {
+  /// Visible to all workspace members, anyone can join
+  Open
+  /// Visible to all workspace members, must be invited to join
+  Closed
+  /// Only visible to teamspace members
+  Private
+}
+
+model Teamspace {
+  id             String               @id @default(uuid()) @db.VarChar
+  workspaceId    String               @map("workspace_id") @db.VarChar
+  name           String               @db.VarChar
+  description    String?              @db.Text
+  icon           String?              @db.VarChar
+  visibility     TeamspaceVisibility  @default(Open)
+  /// Default doc role for workspace members accessing docs in this teamspace
+  defaultDocRole Int                  @default(30) @db.SmallInt
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  members   TeamspaceUserRole[]
+  docs      TeamspaceDoc[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+  @@map("teamspaces")
+}
+
+model TeamspaceUserRole {
+  teamspaceId String   @map("teamspace_id") @db.VarChar
+  userId      String   @map("user_id") @db.VarChar
+  /// Owner = 99, Admin = 50, Member = 30, Viewer = 10
+  role        Int      @db.SmallInt
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  teamspace Teamspace @relation(fields: [teamspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([teamspaceId, userId])
+  @@index([userId])
+  @@map("teamspace_user_roles")
+}
+
+model TeamspaceDoc {
+  teamspaceId String   @map("teamspace_id") @db.VarChar
+  docId       String   @map("doc_id") @db.VarChar
+  addedAt     DateTime @default(now()) @map("added_at") @db.Timestamptz(3)
+
+  teamspace Teamspace @relation(fields: [teamspaceId], references: [id], onDelete: Cascade)
+
+  @@id([teamspaceId, docId])
+  @@index([docId])
+  @@map("teamspace_docs")
 }

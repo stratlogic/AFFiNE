@@ -1,5 +1,6 @@
 import {
   IconButton,
+  Menu,
   MenuItem,
   MenuSeparator,
   toast,
@@ -18,9 +19,11 @@ import { WorkbenchService } from '@affine/core/modules/workbench';
 import { WorkspaceService } from '@affine/core/modules/workspace';
 import { useI18n } from '@affine/i18n';
 import { track } from '@affine/track';
+import { TeamspaceService } from '@affine/core/modules/teamspace';
 import {
   DeleteIcon,
   DuplicateIcon,
+  GroupIcon,
   InformationIcon,
   LinkedPageIcon,
   OpenInNewIcon,
@@ -46,18 +49,29 @@ export const useNavigationPanelDocNodeOperations = (
     docsService,
     compatibleFavoriteItemsAdapter,
     guardService,
+    teamspaceService,
   } = useServices({
     DocsService,
     WorkbenchService,
     WorkspaceService,
     CompatibleFavoriteItemsAdapter,
     GuardService,
+    TeamspaceService,
   });
   const { openConfirmModal } = useConfirmModal();
 
   const [addLinkedPageLoading, setAddLinkedPageLoading] = useState(false);
   const docRecord = useLiveData(docsService.list.doc$(docId));
   const { appSettings } = useAppSettingHelper();
+  const teamspaces = useLiveData(teamspaceService.teamspaces$);
+
+  const availableTeamspaces = useMemo(() => {
+    return teamspaces.filter(ts => ts.currentUserRole && !ts.docIds.includes(docId));
+  }, [teamspaces, docId]);
+
+  const removeTeamspaces = useMemo(() => {
+    return teamspaces.filter(ts => ts.docIds.includes(docId) && (ts.currentUserRole === 'Owner' || ts.currentUserRole === 'Admin'));
+  }, [teamspaces, docId]);
 
   const { createPage } = usePageHelper(
     workspaceService.workspace.docCollection
@@ -149,6 +163,36 @@ export const useNavigationPanelDocNodeOperations = (
     });
   }, [docId, compatibleFavoriteItemsAdapter]);
 
+  const handleMoveToTeamspace = useCallback(
+    async (teamspaceId: string) => {
+      const workspaceId = workspaceService.workspace.id;
+      const success = await teamspaceService.moveDocToTeamspace(
+        workspaceId,
+        docId,
+        teamspaceId
+      );
+      if (success) {
+        toast('Moved to teamspace');
+      } else {
+        toast('Failed to move to teamspace');
+      }
+    },
+    [docId, teamspaceService, workspaceService]
+  );
+
+  const handleRemoveFromTeamspace = useCallback(async () => {
+    const workspaceId = workspaceService.workspace.id;
+    const success = await teamspaceService.removeDocFromTeamspace(
+      workspaceId,
+      docId
+    );
+    if (success) {
+      toast('Removed from teamspace');
+    } else {
+      toast('Failed to remove from teamspace');
+    }
+  }, [docId, teamspaceService, workspaceService]);
+
   return useMemo(
     () => [
       ...(appSettings.showLinkedDocInSidebar
@@ -229,6 +273,47 @@ export const useNavigationPanelDocNodeOperations = (
             },
           ]
         : []),
+      ...(availableTeamspaces.length > 0 || removeTeamspaces.length > 0
+        ? [
+            ...(availableTeamspaces.length > 0 ? [
+              {
+                index: 150,
+                view: (
+                  <Menu
+                    items={availableTeamspaces.map(ts => (
+                      <MenuItem
+                        key={`move-to-teamspace-${ts.id}`}
+                        onClick={() => handleMoveToTeamspace(ts.id)}
+                      >
+                        {ts.name}
+                      </MenuItem>
+                    ))}
+                  >
+                    <MenuItem
+                      prefixIcon={<GroupIcon />}
+                      type="default"
+                      key="move-to-teamspace"
+                    >
+                      Move to teamspace
+                    </MenuItem>
+                  </Menu>
+                ),
+              }
+            ] : []),
+            ...removeTeamspaces.map(ts => ({
+              index: 152,
+              view: (
+                <MenuItem
+                  prefixIcon={<GroupIcon />}
+                  key={`remove-from-teamspace-${ts.id}`}
+                  onClick={() => handleRemoveFromTeamspace(ts.id)}
+                >
+                  Remove from {ts.name}
+                </MenuItem>
+              ),
+            })),
+          ]
+        : []),
       {
         index: 199,
         view: (
@@ -272,10 +357,14 @@ export const useNavigationPanelDocNodeOperations = (
       handleAddLinkedPage,
       handleDuplicate,
       handleMoveToTrash,
+      handleMoveToTeamspace,
+      handleRemoveFromTeamspace,
       handleOpenInNewTab,
       handleOpenInSplitView,
       handleOpenInfoModal,
       handleToggleFavoriteDoc,
+      availableTeamspaces,
+      removeTeamspaces,
       t,
     ]
   );

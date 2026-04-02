@@ -41,6 +41,7 @@ import {
   PgWorkspaceDocStorageAdapter,
 } from '../doc';
 import { AccessController, WorkspaceAction } from '../permission';
+import { TeamspaceService } from '../teamspace';
 import { DocID } from '../utils/doc';
 
 const SubscribeMessage = (event: string) =>
@@ -218,7 +219,8 @@ export class SpaceSyncGateway
     private readonly workspace: PgWorkspaceDocStorageAdapter,
     private readonly userspace: PgUserspaceDocStorageAdapter,
     private readonly docReader: DocReader,
-    private readonly models: Models
+    private readonly models: Models,
+    private readonly teamspaceService: TeamspaceService
   ) {}
 
   onModuleInit() {
@@ -443,7 +445,8 @@ export class SpaceSyncGateway
         this.workspace,
         this.ac,
         this.docReader,
-        this.models
+        this.models,
+        this.teamspaceService
       );
       const userspace = new UserspaceSyncAdapter(client, this.userspace);
 
@@ -635,6 +638,17 @@ export class SpaceSyncGateway
       return { data: { clientId: client.id, success: false } };
     }
 
+    if (spaceType === SpaceType.Workspace) {
+      const canAccess = await this.teamspaceService.canUserAccessDoc(
+        spaceId,
+        user.id,
+        docId
+      );
+      if (!canAccess) {
+        throw new SpaceAccessDenied({ spaceId });
+      }
+    }
+
     await this.selectAdapter(client, spaceType).join(
       user.id,
       spaceId,
@@ -661,10 +675,22 @@ export class SpaceSyncGateway
   @SubscribeMessage('space:load-awarenesses')
   async onLoadAwareness(
     @ConnectedSocket() client: Socket,
+    @CurrentUser() user: CurrentUser,
     @MessageBody()
     { spaceType, spaceId, docId }: LoadSpaceAwarenessesMessage
   ) {
     const adapter = this.selectAdapter(client, spaceType);
+
+    if (spaceType === SpaceType.Workspace) {
+      const canAccess = await this.teamspaceService.canUserAccessDoc(
+        spaceId,
+        user.id,
+        docId
+      );
+      if (!canAccess) {
+        throw new SpaceAccessDenied({ spaceId });
+      }
+    }
 
     const roomType = `${docId}:awareness` as const;
     adapter.assertIn(spaceId, roomType);
@@ -678,10 +704,22 @@ export class SpaceSyncGateway
   @SubscribeMessage('space:update-awareness')
   async onUpdateAwareness(
     @ConnectedSocket() client: Socket,
+    @CurrentUser() user: CurrentUser,
     @MessageBody() message: UpdateAwarenessMessage
   ) {
     const { spaceType, spaceId, docId } = message;
     const adapter = this.selectAdapter(client, spaceType);
+
+    if (spaceType === SpaceType.Workspace) {
+      const canAccess = await this.teamspaceService.canUserAccessDoc(
+        spaceId,
+        user.id,
+        docId
+      );
+      if (!canAccess) {
+        throw new SpaceAccessDenied({ spaceId });
+      }
+    }
 
     const roomType = `${docId}:awareness` as const;
     adapter.assertIn(spaceId, roomType);
@@ -708,6 +746,7 @@ abstract class SyncSocketAdapter {
     if (this.in(spaceId, roomType)) {
       return;
     }
+    this._userId = userId;
     await this.assertAccessible(spaceId, userId, 'Workspace.Sync');
     return this.client.join(this.room(spaceId, roomType));
   }
@@ -755,6 +794,8 @@ abstract class SyncSocketAdapter {
     return this.storage.deleteDoc(spaceId, docId);
   }
 
+  protected _userId?: string;
+
   getTimestamps(spaceId: string, timestamp?: number) {
     this.assertIn(spaceId);
     return this.storage.getSpaceDocTimestamps(spaceId, timestamp);
@@ -767,7 +808,8 @@ class WorkspaceSyncAdapter extends SyncSocketAdapter {
     storage: DocStorageAdapter,
     private readonly ac: AccessController,
     private readonly docReader: DocReader,
-    private readonly models: Models
+    private readonly models: Models,
+    private readonly teamspaceService: TeamspaceService
   ) {
     super(SpaceType.Workspace, client, storage);
   }
@@ -786,6 +828,19 @@ class WorkspaceSyncAdapter extends SyncSocketAdapter {
     if (docMeta?.blocked) {
       throw new DocUpdateBlocked({ spaceId, docId });
     }
+
+    // Teamspace access check for push
+    if (this._userId) {
+      const canAccess = await this.teamspaceService.canUserAccessDoc(
+        spaceId,
+        this._userId,
+        docId
+      );
+      if (!canAccess) {
+        throw new SpaceAccessDenied({ spaceId });
+      }
+    }
+
     return await super.push(spaceId, docId, updates, editorId);
   }
 
@@ -794,7 +849,57 @@ class WorkspaceSyncAdapter extends SyncSocketAdapter {
     docId: string,
     stateVector?: Uint8Array
   ) {
+    // Teamspace access check for loading doc
+    if (this._userId) {
+      const canAccess = await this.teamspaceService.canUserAccessDoc(
+        spaceId,
+        this._userId,
+        docId
+      );
+      if (!canAccess) {
+        throw new SpaceAccessDenied({ spaceId });
+      }
+    }
+
     return await this.docReader.getDocDiff(spaceId, docId, stateVector);
+  }
+
+  /**
+   * Override getTimestamps to filter out docs the user cannot access.
+   * This is the key sync gatekeeper — it determines which docs appear in
+   * the client's sidebar by only returning timestamps for accessible docs.
+   */
+  override async getTimestamps(spaceId: string, timestamp?: number) {
+    this.assertIn(spaceId);
+    const allTimestamps = await this.storage.getSpaceDocTimestamps(
+      spaceId,
+      timestamp
+    );
+
+    if (!allTimestamps || !this._userId) {
+      return allTimestamps;
+    }
+
+    // Get the set of accessible doc IDs for this user
+    const accessibleDocIds = await this.teamspaceService.getAccessibleDocIds(
+      spaceId,
+      this._userId
+    );
+
+    // Empty set means Owner/Admin — no filtering needed
+    if (accessibleDocIds.size === 0) {
+      return allTimestamps;
+    }
+
+    // Filter timestamps to only include accessible docs
+    const filtered: Record<string, number> = {};
+    for (const [docId, ts] of Object.entries(allTimestamps)) {
+      if (accessibleDocIds.has(docId)) {
+        filtered[docId] = ts;
+      }
+    }
+
+    return filtered;
   }
 
   async assertAccessible(

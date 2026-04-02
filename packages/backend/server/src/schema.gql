@@ -755,6 +755,20 @@ input CreateCopilotPromptInput {
   name: String!
 }
 
+input CreateTeamspaceInput {
+  """Teamspace description"""
+  description: String
+
+  """Teamspace icon"""
+  icon: String
+
+  """Teamspace name"""
+  name: String!
+
+  """Teamspace visibility"""
+  visibility: TeamspaceVisibility = Open
+}
+
 input CreateUserInput {
   email: String!
   name: String
@@ -1505,6 +1519,9 @@ type Mutation {
   """add a file to context"""
   addContextFile(content: Upload!, options: AddContextFileInput!): CopilotContextFile!
 
+  """Add a member to a teamspace"""
+  addTeamspaceMember(role: TeamspaceRole! = Member, teamspaceId: ID!, userId: ID!, workspaceId: ID!): Boolean!
+
   """Update workspace embedding files"""
   addWorkspaceEmbeddingFiles(blob: Upload!, workspaceId: String!): CopilotWorkspaceFile!
   addWorkspaceFeature(feature: FeatureType!, workspaceId: String!): Boolean!
@@ -1552,6 +1569,9 @@ type Mutation {
   createInviteLink(expireTime: WorkspaceInviteLinkExpireTime!, workspaceId: String!): InviteLink!
   createReply(input: ReplyCreateInput!): ReplyObjectType!
 
+  """Create a new teamspace (Owner/Admin only)"""
+  createTeamspace(input: CreateTeamspaceInput!, workspaceId: ID!): TeamspaceType!
+
   """Create a new user"""
   createUser(input: CreateUserInput!): UserType!
 
@@ -1565,6 +1585,9 @@ type Mutation {
 
   """Delete a reply"""
   deleteReply(id: String!): Boolean!
+
+  """Delete a teamspace (docs become unassigned)"""
+  deleteTeamspace(teamspaceId: ID!, workspaceId: ID!): Boolean!
 
   """Delete a user account"""
   deleteUser(id: String!): DeleteAccount!
@@ -1589,6 +1612,9 @@ type Mutation {
 
   """mention user in a doc"""
   mentionUser(input: MentionInput!): ID!
+
+  """Move a document into a teamspace"""
+  moveDocToTeamspace(docId: ID!, teamspaceId: ID!, workspaceId: ID!): Boolean!
   publishDoc(docId: String!, mode: PublicDocMode = Page, workspaceId: String!): DocType!
 
   """queue workspace doc embedding"""
@@ -1619,6 +1645,14 @@ type Mutation {
 
   """remove a file from context"""
   removeContextFile(options: RemoveContextFileInput!): Boolean!
+
+  """
+  Remove a document from its teamspace (becomes unassigned, visible only to Owner/Admin)
+  """
+  removeDocFromTeamspace(docId: ID!, workspaceId: ID!): Boolean!
+
+  """Remove a member from a teamspace"""
+  removeTeamspaceMember(teamspaceId: ID!, userId: ID!, workspaceId: ID!): Boolean!
 
   """Remove workspace embedding files"""
   removeWorkspaceEmbeddingFiles(fileId: String!, workspaceId: String!): Boolean!
@@ -1674,6 +1708,12 @@ type Mutation {
   """Update user settings"""
   updateSettings(input: UpdateUserSettingsInput!): Boolean!
   updateSubscriptionRecurring(idempotencyKey: String @deprecated(reason: "use header `Idempotency-Key`"), plan: SubscriptionPlan = Pro, recurring: SubscriptionRecurring!, workspaceId: String): SubscriptionType!
+
+  """Update a teamspace"""
+  updateTeamspace(input: UpdateTeamspaceInput!, teamspaceId: ID!, workspaceId: ID!): TeamspaceType!
+
+  """Update a member role in a teamspace"""
+  updateTeamspaceMemberRole(role: TeamspaceRole!, teamspaceId: ID!, userId: ID!, workspaceId: ID!): Boolean!
 
   """Update an user"""
   updateUser(id: String!, input: ManageUserInput!): UserType!
@@ -1876,6 +1916,11 @@ type PublicUserType {
 }
 
 type Query {
+  """
+  Get all doc IDs accessible to the current user in a workspace (for sidebar filtering)
+  """
+  accessibleDocIds(workspaceId: ID!): [String!]
+
   """List all shared links across workspaces for admin panel"""
   adminAllSharedLinks(filter: AdminAllSharedLinksFilterInput, pagination: PaginationInput!): PaginatedAdminAllSharedLink!
 
@@ -1917,6 +1962,15 @@ type Query {
 
   """server config"""
   serverConfig: ServerConfigType!
+
+  """Get a specific teamspace"""
+  teamspace(teamspaceId: ID!, workspaceId: ID!): TeamspaceType
+
+  """Get docs in a teamspace"""
+  teamspaceDocs(teamspaceId: ID!, workspaceId: ID!): [TeamspaceDocType!]!
+
+  """List teamspaces visible to the current user in a workspace"""
+  teamspaces(workspaceId: ID!): [TeamspaceType!]!
 
   """Get user by email"""
   user(email: String!): UserOrLimitedUser
@@ -2326,6 +2380,78 @@ enum SubscriptionVariant {
   Onetime
 }
 
+type TeamspaceDocType {
+  """Date added to teamspace"""
+  addedAt: DateTime!
+
+  """Doc ID"""
+  docId: ID!
+
+  """Teamspace ID"""
+  teamspaceId: ID!
+}
+
+type TeamspaceMemberType {
+  """Member avatar URL"""
+  avatarUrl: String
+
+  """Member email"""
+  email: String!
+
+  """Member name"""
+  name: String!
+
+  """Member role in teamspace"""
+  role: TeamspaceRole!
+  userId: ID!
+}
+
+"""User role in teamspace"""
+enum TeamspaceRole {
+  Admin
+  External
+  Member
+  Owner
+  Viewer
+}
+
+type TeamspaceType {
+  """Teamspace created date"""
+  createdAt: DateTime!
+
+  """Current user's role in this teamspace (null = not a member)"""
+  currentUserRole: TeamspaceRole
+
+  """Teamspace description"""
+  description: String
+
+  """Documents in the teamspace"""
+  docs: [TeamspaceDocType!]
+
+  """Teamspace icon"""
+  icon: String
+  id: ID!
+
+  """Members of the teamspace"""
+  members: [TeamspaceMemberType!]
+
+  """Teamspace name"""
+  name: String!
+
+  """Teamspace visibility setting"""
+  visibility: TeamspaceVisibility!
+
+  """Workspace ID"""
+  workspaceId: ID!
+}
+
+"""Visibility level of a teamspace"""
+enum TeamspaceVisibility {
+  Closed
+  Open
+  Private
+}
+
 enum TimeBucket {
   Day
   Minute
@@ -2400,6 +2526,20 @@ input UpdateDocUserRoleInput {
   role: DocRole!
   userId: String!
   workspaceId: String!
+}
+
+input UpdateTeamspaceInput {
+  """Teamspace description"""
+  description: String
+
+  """Teamspace icon"""
+  icon: String
+
+  """Teamspace name"""
+  name: String
+
+  """Teamspace visibility"""
+  visibility: TeamspaceVisibility
 }
 
 input UpdateUserInput {

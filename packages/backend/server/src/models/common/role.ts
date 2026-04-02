@@ -17,3 +17,11 @@ export enum WorkspaceRole {
   Admin = 10,
   Owner = 99,
 }
+
+export enum TeamspaceRole {
+  External = 0,
+  Viewer = 10,
+  Member = 30,
+  Admin = 50,
+  Owner = 99,
+}

@@ -28,6 +28,9 @@ import { MagicLinkOtpModel } from './magic-link-otp';
 import { NotificationModel } from './notification';
 import { MODELS_SYMBOL } from './provider';
 import { SessionModel } from './session';
+import { TeamspaceModel } from './teamspace';
+import { TeamspaceDocModel } from './teamspace-doc';
+import { TeamspaceUserModel } from './teamspace-user';
 import { UserModel } from './user';
 import { UserDocModel } from './user-doc';
 import { UserFeatureModel } from './user-feature';
@@ -70,6 +73,9 @@ const MODELS = {
   calendarEventInstance: CalendarEventInstanceModel,
   workspaceCalendar: WorkspaceCalendarModel,
   workspaceAnalytics: WorkspaceAnalyticsModel,
+  teamspace: TeamspaceModel,
+  teamspaceUser: TeamspaceUserModel,
+  teamspaceDoc: TeamspaceDocModel,
 };
 
 type ModelsType = {
@@ -150,3 +156,7 @@ export * from './workspace-analytics';
 export * from './workspace-calendar';
 export * from './workspace-feature';
 export * from './workspace-user';
+export * from './teamspace';
+export * from './teamspace-user';
+export * from './teamspace-doc';
+

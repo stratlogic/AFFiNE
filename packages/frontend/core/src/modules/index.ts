@@ -58,6 +58,7 @@ import {
 } from './storage';
 import { configureSystemFontFamilyModule } from './system-font-family';
 import { configureTagModule } from './tag';
+import { configureTeamspaceModule } from './teamspace';
 import { configureTelemetryModule } from './telemetry';
 import { configureTemplateDocModule } from './template-doc';
 import { configureAppThemeModule } from './theme';
@@ -80,6 +81,7 @@ export function configureCommonModules(framework: Framework) {
   configureCollectionModule(framework);
   configureNavigationModule(framework);
   configureTagModule(framework);
+  configureTeamspaceModule(framework);
   configureCloudModule(framework);
   configureQuotaModule(framework);
   configurePermissionsModule(framework);

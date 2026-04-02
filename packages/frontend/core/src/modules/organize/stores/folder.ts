@@ -50,9 +50,11 @@ export class FolderStore extends Store {
     nodeId: string,
     index: string
   ) {
-    const parent = this.dbService.db.folders.get(parentId);
-    if (parent === null || parent.type !== 'folder') {
-      throw new Error('Parent folder not found');
+    if (parentId && !parentId.startsWith('teamspace:')) {
+      const parent = this.dbService.db.folders.get(parentId);
+      if (parent === null || parent.type !== 'folder') {
+        throw new Error('Parent folder not found');
+      }
     }
 
     this.dbService.db.folders.create({
@@ -64,6 +66,7 @@ export class FolderStore extends Store {
   }
 
   renameNode(nodeId: string, name: string) {
+    if (nodeId.startsWith('teamspace:')) return; // handled by teamspace backend
     const node = this.dbService.db.folders.get(nodeId);
     if (node === null) {
       throw new Error('Node not found');
@@ -77,7 +80,7 @@ export class FolderStore extends Store {
   }
 
   createFolder(parentId: string | null, name: string, index: string) {
-    if (parentId) {
+    if (parentId && !parentId.startsWith('teamspace:')) {
       const parent = this.dbService.db.folders.get(parentId);
       if (parent === null || parent.type !== 'folder') {
         throw new Error('Parent folder not found');

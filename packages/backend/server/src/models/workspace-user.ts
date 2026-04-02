@@ -222,9 +222,10 @@ export class WorkspaceUserModel extends BaseModel {
    * Get the **accepted** Role of a user in a workspace.
    */
   async getActive(workspaceId: string, userId: string) {
-    return await this.db.workspaceUserRole.findUnique({
+    return await this.db.workspaceUserRole.findFirst({
       where: {
-        workspaceId_userId: { workspaceId, userId },
+        workspaceId,
+        userId,
         status: WorkspaceMemberStatus.Accepted,
       },
     });

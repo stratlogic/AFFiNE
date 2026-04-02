@@ -8,16 +8,18 @@ import {
   yjsObservePath,
 } from '@toeverything/infra';
 import { nanoid } from 'nanoid';
-import { distinctUntilChanged, map, switchMap } from 'rxjs';
+import { combineLatest, distinctUntilChanged, map, switchMap, startWith } from 'rxjs';
 import { Array as YArray, Map as YMap, transact } from 'yjs';
 
 import type { WorkspaceService } from '../../workspace';
+import type { TeamspaceService } from '../../teamspace';
 import type { DocPropertiesStore } from './doc-properties';
 
 export class DocsStore extends Store {
   constructor(
     private readonly workspaceService: WorkspaceService,
-    private readonly docPropertiesStore: DocPropertiesStore
+    private readonly docPropertiesStore: DocPropertiesStore,
+    private readonly teamspaceService: TeamspaceService
   ) {
     super();
   }
@@ -63,6 +65,50 @@ export class DocsStore extends Store {
     return id;
   }
 
+  private pipeFilter() {
+    this.teamspaceService.fetchAccessibleDocIds(this.workspaceService.workspace.id);
+    return (source: import('rxjs').Observable<string[]>) => 
+      combineLatest([
+        source,
+        this.teamspaceService.accessibleDocIds$.asObservable().pipe(startWith(this.teamspaceService.accessibleDocIds$.value))
+      ]).pipe(
+        map(([docIds, accessibleDocIds]) => {
+          if (accessibleDocIds === null) {
+            return docIds;
+          }
+          const accessibleSet = new Set(accessibleDocIds);
+          return docIds.filter(id => accessibleSet.has(id));
+        }),
+        distinctUntilChanged((a, b) => {
+          if (a.length !== b.length) return false;
+          return a.every((v, i) => v === b[i]);
+        })
+      );
+  }
+
+  private pipeFilterWithId<T extends { id: string }>() {
+    this.teamspaceService.fetchAccessibleDocIds(this.workspaceService.workspace.id);
+    return (source: import('rxjs').Observable<T[]>) =>
+      combineLatest([
+        source,
+        this.teamspaceService.accessibleDocIds$
+          .asObservable()
+          .pipe(startWith(this.teamspaceService.accessibleDocIds$.value)),
+      ]).pipe(
+        map(([items, accessibleDocIds]) => {
+          if (accessibleDocIds === null) {
+            return items;
+          }
+          const accessibleSet = new Set(accessibleDocIds);
+          return items.filter(item => accessibleSet.has(item.id));
+        }),
+        distinctUntilChanged((a, b) => {
+          if (a.length !== b.length) return false;
+          return a.every((v, i) => v.id === b[i].id);
+        })
+      );
+  }
+
   watchDocIds() {
     return yjsGetPath(
       this.workspaceService.workspace.rootYDoc.getMap('meta'),
@@ -75,7 +121,8 @@ export class DocsStore extends Store {
         } else {
           return [];
         }
-      })
+      }),
+      this.pipeFilter()
     );
   }
 
@@ -94,7 +141,8 @@ export class DocsStore extends Store {
         } else {
           return [];
         }
-      })
+      }),
+      this.pipeFilterWithId()
     );
   }
 
@@ -119,7 +167,8 @@ export class DocsStore extends Store {
         } else {
           return [];
         }
-      })
+      }),
+      this.pipeFilterWithId()
     );
   }
 
@@ -138,7 +187,8 @@ export class DocsStore extends Store {
         } else {
           return [];
         }
-      })
+      }),
+      this.pipeFilterWithId()
     );
   }
 
@@ -157,7 +207,8 @@ export class DocsStore extends Store {
         } else {
           return [];
         }
-      })
+      }),
+      this.pipeFilterWithId()
     );
   }
 
@@ -175,7 +226,8 @@ export class DocsStore extends Store {
         } else {
           return [];
         }
-      })
+      }),
+      this.pipeFilter()
     );
   }
 
@@ -193,7 +245,8 @@ export class DocsStore extends Store {
         } else {
           return [];
         }
-      })
+      }),
+      this.pipeFilter()
     );
   }
 

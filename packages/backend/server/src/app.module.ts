@@ -47,6 +47,7 @@ import { StaticFileModule } from './core/static-files';
 import { StorageModule } from './core/storage';
 import { SyncModule } from './core/sync';
 import { TelemetryModule } from './core/telemetry';
+import { TeamspaceModule } from './core/teamspace';
 import { UserModule } from './core/user';
 import { VersionModule } from './core/version';
 import { WorkspaceModule } from './core/workspaces';
@@ -190,6 +191,7 @@ export function buildAppModule(env: Env) {
       StorageModule,
       ServerConfigResolverModule,
       WorkspaceModule,
+      TeamspaceModule,
       PaymentModule,
       CopilotModule,
       CaptchaModule,
