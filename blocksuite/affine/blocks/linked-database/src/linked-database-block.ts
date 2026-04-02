@@ -4,6 +4,7 @@ import {
   popMenu,
   popupTargetFromElement,
 } from '@blocksuite/affine-components/context-menu';
+import { PeekViewProvider } from '@blocksuite/affine-components/peek';
 import { toast } from '@blocksuite/affine-components/toast';
 import { RefNodeSlotsProvider } from '@blocksuite/affine-inline-reference';
 import type {
@@ -38,6 +39,7 @@ import { repeat } from 'lit/directives/repeat.js';
 import { DatabaseSelection } from '../../database/src/selection.js';
 import { currentViewStorage } from '../../database/src/utils/current-view.js';
 import { LinkedDatabaseBlockDataSource } from './data-source.js';
+import { getRowLinkedPageTarget } from './relation-row-doc-link-fallback.js';
 
 export class LinkedDatabaseBlockComponent extends CaptionedBlockComponent<LinkedDatabaseBlockModel> {
   static override styles = css`
@@ -250,6 +252,38 @@ export class LinkedDatabaseBlockComponent extends CaptionedBlockComponent<Linked
     super.connectedCallback();
     this.setAttribute(RANGE_SYNC_EXCLUDE_ATTR, 'true');
     this.handleDocLinkClick();
+    this.handleRelationRowPeekRequest();
+  }
+
+  private handleRelationRowPeekRequest() {
+    this.disposables.addFromEvent(
+      this,
+      'affine-database-row-peek-request',
+      (e: CustomEvent<{ databaseId: string; rowId: string }>) => {
+        const { databaseId, rowId } = e.detail;
+        const docId = this.model.store.id;
+        const peekViewService = this.std.getOptional(PeekViewProvider);
+        if (peekViewService) {
+          e.stopPropagation();
+          peekViewService
+            .peek({
+              docId,
+              databaseId,
+              databaseDocId: docId,
+              databaseRowId: rowId,
+              target: this,
+            })
+            .catch(console.error);
+          return;
+        }
+        const linkedPageId = getRowLinkedPageTarget(this.model.store, rowId);
+        this.std.getOptional(RefNodeSlotsProvider)?.docLinkClicked.next({
+          pageId: linkedPageId ?? docId,
+          ...(linkedPageId ? {} : { params: { blockIds: [rowId] } }),
+          host: this.host,
+        });
+      }
+    );
   }
 
   handleDocLinkClick() {

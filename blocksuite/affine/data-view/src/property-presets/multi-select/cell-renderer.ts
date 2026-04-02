@@ -66,15 +66,18 @@ export class MultiSelectCell extends BaseCellRenderer<
   }
 
   override render() {
+    const values = this._value$.value;
     return html`
       <div
         class="${multiSelectStyle}"
         @pointerdown="${this.isEditing$.value ? stopPropagation : undefined}"
       >
-        <affine-multi-tag-view
-          .value="${this._value$.value}"
-          .options="${this.options$.value}"
-        ></affine-multi-tag-view>
+        ${values.length === 0
+          ? html``
+          : html`<affine-multi-tag-view
+              .value="${values}"
+              .options="${this.options$.value}"
+            ></affine-multi-tag-view>`}
       </div>
     `;
   }

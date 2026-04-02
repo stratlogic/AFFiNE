@@ -72,6 +72,7 @@ import { BlockRenderer } from './detail-panel/block-renderer.js';
 import { NoteRenderer } from './detail-panel/note-renderer.js';
 import { DatabaseSelection } from './selection.js';
 import { currentViewStorage } from './utils/current-view.js';
+import { getRowLinkedPageTarget } from './utils/relation-row-doc-link.js';
 import { getSingleDocIdFromText } from './utils/title-doc.js';
 import type { DatabaseViewExtensionOptions } from './view';
 
@@ -357,6 +358,38 @@ export class DatabaseBlockComponent extends CaptionedBlockComponent<DatabaseBloc
     this.listenFullWidthChange();
     this.handleMobileEditing();
     this.handleDocLinkClick();
+    this.handleRelationRowPeekRequest();
+  }
+
+  private handleRelationRowPeekRequest() {
+    this.disposables.addFromEvent(
+      this,
+      'affine-database-row-peek-request',
+      (e: CustomEvent<{ databaseId: string; rowId: string }>) => {
+        const { databaseId, rowId } = e.detail;
+        const docId = this.model.store.id;
+        const peekViewService = this.std.getOptional(PeekViewProvider);
+        if (peekViewService) {
+          e.stopPropagation();
+          peekViewService
+            .peek({
+              docId,
+              databaseId,
+              databaseDocId: docId,
+              databaseRowId: rowId,
+              target: this,
+            })
+            .catch(console.error);
+          return;
+        }
+        const linkedPageId = getRowLinkedPageTarget(this.model.store, rowId);
+        this.std.getOptional(RefNodeSlotsProvider)?.docLinkClicked.next({
+          pageId: linkedPageId ?? docId,
+          ...(linkedPageId ? {} : { params: { blockIds: [rowId] } }),
+          host: this.host,
+        });
+      }
+    );
   }
 
   handleDocLinkClick() {
