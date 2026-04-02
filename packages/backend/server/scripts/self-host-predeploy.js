@@ -39,12 +39,29 @@ function prepare() {
 }
 
 function runPredeployScript() {
-  console.log('running predeploy script.');
-  execSync('yarn predeploy', {
-    encoding: 'utf-8',
-    env: process.env,
-    stdio: 'inherit',
-  });
+  console.log('Running predeploy script.');
+  // Use npx if yarn fails or is unavailable in the minimal environment, 
+  // but preferably stick to node calls for core functionality to avoid PATH issues.
+  try {
+    console.log('Attempting prisma migrate deploy...');
+    // We point directly to the binary or use npx if available. 
+    // Since we copied node_modules, we can try running it via node.
+    execSync('npx prisma migrate deploy', {
+      encoding: 'utf-8',
+      env: process.env,
+      stdio: 'inherit',
+    });
+
+    console.log('Attempting cli run...');
+    execSync('node ./dist/main.js run', {
+      encoding: 'utf-8',
+      env: { ...process.env, SERVER_FLAVOR: 'script' },
+      stdio: 'inherit',
+    });
+  } catch (err) {
+    console.error('Predeploy script failed:', err.message);
+    process.exit(1);
+  }
 }
 
 function fixFailedMigrations() {
@@ -54,7 +71,7 @@ function fixFailedMigrations() {
   ];
   for (const migration of maybeFailedMigrations) {
     try {
-      execSync(`yarn prisma migrate resolve --rolled-back ${migration}`, {
+      execSync(`npx prisma migrate resolve --rolled-back ${migration}`, {
         encoding: 'utf-8',
         env: process.env,
         stdio: 'pipe',
@@ -83,6 +100,24 @@ function fixFailedMigrations() {
   }
 }
 
-prepare();
-fixFailedMigrations();
-runPredeployScript();
+async function main() {
+  // Wait for database to be ready (simple retry loop)
+  let retries = 5;
+  while (retries > 0) {
+    try {
+      prepare();
+      fixFailedMigrations();
+      runPredeployScript();
+      break;
+    } catch (err) {
+      console.log(`Predeploy attempt failed. Retries left: ${retries-1}. Error: ${err.message}`);
+      retries--;
+      if (retries === 0) {
+        process.exit(1);
+      }
+      await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5s
+    }
+  }
+}
+
+main();

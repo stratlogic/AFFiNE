@@ -2,6 +2,10 @@
 .github/**/*.md
 .gitignore
 
+# Never bake local .env into the image (dotenv loads /app/.env at runtime and would enable dev flags like the indexer).
+**/.env
+.env
+
 # Local dependency/build artifacts
 /node_modules
 /target

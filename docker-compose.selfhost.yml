@@ -18,16 +18,16 @@ services:
       affine_migration:
         condition: service_completed_successfully
     volumes:
-      # These volumes ensure your 'fs' storage survives across Zeabur container restarts
-      - affine_storage:/app/.affine/storage
-      - affine_config:/app/.affine/config
+      # Server resolves ~/.affine/* to /root/.affine/* (root user); match that so data persists.
+      - affine_storage:/root/.affine/storage
+      - affine_config:/root/.affine/config
     environment:
       - REDIS_SERVER_HOST=redis
       - DATABASE_URL=postgresql://${DB_USERNAME:-affine}:${DB_PASSWORD:-affine}@postgres:5432/${DB_DATABASE:-affine}
       - AFFINE_INDEXER_ENABLED=false
       - DEPLOYMENT_TYPE=selfhosted
-      - UPLOAD_LOCATION=/app/.affine/storage
-      - CONFIG_LOCATION=/app/.affine/config
+      - UPLOAD_LOCATION=/root/.affine/storage
+      - CONFIG_LOCATION=/root/.affine/config
     restart: unless-stopped
 
   affine_migration:
@@ -36,16 +36,16 @@ services:
       dockerfile: Dockerfile
     container_name: affine_migration_job
     volumes:
-      - affine_storage:/app/.affine/storage
-      - affine_config:/app/.affine/config
+      - affine_storage:/root/.affine/storage
+      - affine_config:/root/.affine/config
     command: ['sh', '-c', 'node ./scripts/self-host-predeploy.js']
     environment:
       - REDIS_SERVER_HOST=redis
       - DATABASE_URL=postgresql://${DB_USERNAME:-affine}:${DB_PASSWORD:-affine}@postgres:5432/${DB_DATABASE:-affine}
       - AFFINE_INDEXER_ENABLED=false
       - DEPLOYMENT_TYPE=selfhosted
-      - UPLOAD_LOCATION=/app/.affine/storage
-      - CONFIG_LOCATION=/app/.affine/config
+      - UPLOAD_LOCATION=/root/.affine/storage
+      - CONFIG_LOCATION=/root/.affine/config
     depends_on:
       postgres:
         condition: service_healthy

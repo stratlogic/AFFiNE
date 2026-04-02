@@ -53,12 +53,19 @@ RUN cp /app/static/assets-manifest.json /app/static/mobile/assets-manifest.json
 # Ensure the native bindings and node modules are kept
 COPY --from=builder /app/node_modules /app/node_modules
 COPY --from=builder /app/packages/backend/native /app/packages/backend/native
+# Copy Yarn context for robustness
+COPY --from=builder /app/.yarn /app/.yarn
+COPY --from=builder /app/.yarnrc.yml /app/.yarnrc.yml
 
 RUN apt-get update && \
   apt-get install -y --no-install-recommends openssl libjemalloc2 ca-certificates && \
   rm -rf /var/lib/apt/lists/*
 
+# Explicit LD_PRELOAD path as a hint, though system name should work
 ENV LD_PRELOAD=libjemalloc.so.2
+# Self-hosted images have no Manticore/Elasticsearch by default; dotenv must not override this unless explicitly set.
+ENV AFFINE_INDEXER_ENABLED=false
 EXPOSE 3010
 
-CMD ["sh", "-c", "node ./scripts/self-host-predeploy.js && node ./dist/main.js"]
+# Increase node memory limit for larger workspaces and run predeploy logic
+CMD ["sh", "-c", "node ./scripts/self-host-predeploy.js && node --max-old-space-size=4096 ./dist/main.js"]

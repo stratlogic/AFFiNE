@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { camelCase, chunk, mapKeys, snakeCase } from 'lodash-es';
 
 import {
+  Config,
   InvalidIndexerInput,
   JobQueue,
   SearchProviderNotFound,
@@ -110,10 +111,15 @@ export class IndexerService {
   constructor(
     private readonly models: Models,
     private readonly factory: SearchProviderFactory,
-    private readonly queue: JobQueue
+    private readonly queue: JobQueue,
+    private readonly affineConfig: Config
   ) {}
 
   async createTables() {
+    if (!this.affineConfig.indexer.enabled) {
+      this.logger.debug('Indexer disabled, skip creating search tables');
+      return;
+    }
     let searchProvider: SearchProvider | undefined;
     try {
       searchProvider = this.factory.get();
