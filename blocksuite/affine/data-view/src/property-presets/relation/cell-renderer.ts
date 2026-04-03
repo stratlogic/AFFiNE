@@ -8,18 +8,26 @@ import {
   renderSubMenu,
   subMenuMiddleware,
 } from '@blocksuite/affine-components/context-menu';
-import { FeatureFlagService } from '@blocksuite/affine-shared/services';
+import {
+  CrossTeamspaceRelationHostService,
+  FeatureFlagService,
+  type ResolvedRelationRow,
+} from '@blocksuite/affine-shared/services';
 import { SignalWatcher, WithDisposable } from '@blocksuite/global/lit';
 import { ShadowlessElement } from '@blocksuite/std';
 import type { Store } from '@blocksuite/store';
 import { signal } from '@preact/signals-core';
 import { html } from 'lit';
-import { property } from 'lit/decorators.js';
+import type { PropertyValues } from 'lit';
+import { property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 
 import { BaseCellRenderer } from '../../core/property/index.js';
 import { createFromBaseCellRenderer } from '../../core/property/renderer.js';
-import { findAllDatabases } from '../../core/utils/database-picker.js';
+import {
+  findAllDatabases,
+  findAllDatabasesInWorkspace,
+} from '../../core/utils/database-picker.js';
 import { createUniComponentFromWebComponent } from '../../core/utils/uni-component/index.js';
 import { createIcon } from '../../core/utils/uni-icon.js';
 import type { TableProperty } from '../../view-presets/table/table-view-manager.js';
@@ -69,6 +77,19 @@ export function isCrossWorkspaceRelayColumnUx(
   if (data.crossWorkspaceRelayReadOnly) return true;
   const ws = data.crossWorkspaceTargetWorkspaceId;
   return typeof ws === 'string' && ws.length > 0;
+}
+
+/** Relation targets another page in the same workspace (optional `targetDocId`). */
+export function isCrossDocRelationStore(
+  store: Store,
+  data: { targetDocId?: string }
+): boolean {
+  const t = data.targetDocId;
+  return typeof t === 'string' && t.length > 0 && t !== store.id;
+}
+
+export function isCrossTeamspaceRelationFlagOn(store: Store): boolean {
+  return store.get(FeatureFlagService).getFlag('enable_cross_teamspace_relation');
 }
 
 function getLinkedReferenceTitle(
@@ -205,9 +226,18 @@ export class RelationSettings extends SignalWatcher(
 
   private toggleBidirectional(e: MouseEvent) {
     e.stopPropagation();
-    this.column.dataUpdate(data => ({
-      ...data,
-      isBidirectional: !data.isBidirectional,
+    const dataSource = this.column.view.manager.dataSource as any;
+    const store = dataSource.doc as Store;
+    const data = this.column.data$.value as any;
+    if (
+      isCrossTeamspaceRelationFlagOn(store) &&
+      isCrossDocRelationStore(store, data)
+    ) {
+      return;
+    }
+    this.column.dataUpdate(d => ({
+      ...d,
+      isBidirectional: !d.isBidirectional,
     }));
   }
 
@@ -216,6 +246,12 @@ export class RelationSettings extends SignalWatcher(
     const dataSource = this.column.view.manager.dataSource as any;
     const store = dataSource.doc as Store;
     const data = this.column.data$.value as any;
+    if (
+      isCrossTeamspaceRelationFlagOn(store) &&
+      isCrossDocRelationStore(store, data)
+    ) {
+      return;
+    }
     const rows = dataSource.rows$.value as string[];
     const propertyId = this.column.id;
     const targetDatabaseId = data?.targetDatabaseId as string | undefined;
@@ -251,6 +287,13 @@ export class RelationSettings extends SignalWatcher(
     e.stopPropagation();
     const dataSource = this.column.view.manager.dataSource as any;
     const store = dataSource.doc as Store;
+    const data = this.column.data$.value as any;
+    if (
+      isCrossTeamspaceRelationFlagOn(store) &&
+      isCrossDocRelationStore(store, data)
+    ) {
+      return;
+    }
     const rows = dataSource.rows$.value as string[];
     const propertyId = this.column.id;
 
@@ -317,7 +360,9 @@ export class RelationSettings extends SignalWatcher(
         </div>
       `;
     }
-    const databases = findAllDatabases(store);
+    const databases = isCrossTeamspaceRelationFlagOn(store)
+      ? findAllDatabasesInWorkspace(store)
+      : findAllDatabases(store);
     const targetDatabase = data.targetDatabaseId
       ? store.getBlock(data.targetDatabaseId)?.model
       : null;
@@ -359,11 +404,20 @@ export class RelationSettings extends SignalWatcher(
                               >(${db.docTitle})</span
                             >`
                           : undefined,
-                        isSelected: db.id === data.targetDatabaseId,
+                        isSelected:
+                          db.id === data.targetDatabaseId &&
+                          (db.sourceDocId ?? store.id) ===
+                            (data.targetDocId ?? store.id),
                         select: () => {
-                          this.column.dataUpdate(data => ({
-                            ...data,
+                          const cross =
+                            isCrossTeamspaceRelationFlagOn(store) &&
+                            !!db.sourceDocId &&
+                            db.sourceDocId !== store.id;
+                          this.column.dataUpdate(d => ({
+                            ...d,
                             targetDatabaseId: db.id,
+                            targetDocId: cross ? db.sourceDocId : undefined,
+                            isBidirectional: cross ? false : d.isBidirectional,
                           }));
                           this.menu?.close();
                         },
@@ -377,7 +431,14 @@ export class RelationSettings extends SignalWatcher(
 
         <div
           class="dv-hover"
-          style="display: flex; align-items: center; justify-content: space-between; padding: 8px; border-radius: 4px; cursor: pointer;"
+          style="display: flex; align-items: center; justify-content: space-between; padding: 8px; border-radius: 4px; cursor: ${isCrossTeamspaceRelationFlagOn(
+            store
+          ) && isCrossDocRelationStore(store, data)
+            ? 'default'
+            : 'pointer'}; opacity: ${isCrossTeamspaceRelationFlagOn(store) &&
+          isCrossDocRelationStore(store, data)
+            ? '0.5'
+            : '1'};"
           @click="${this.toggleBidirectional}"
         >
           <div style="font-size: 14px;">Separate back-reference</div>
@@ -387,6 +448,15 @@ export class RelationSettings extends SignalWatcher(
               this.toggleBidirectional(new MouseEvent('click'))}"
           ></toggle-switch>
         </div>
+        ${isCrossTeamspaceRelationFlagOn(store) &&
+        isCrossDocRelationStore(store, data)
+          ? html`<div
+              style="font-size: 11px; color: var(--affine-text-secondary-color); padding: 0 8px 4px;"
+            >
+              Bidirectional relations are not available for cross-page
+              targets.
+            </div>`
+          : null}
         ${(
           this.column.view.manager.dataSource as {
             isBlockQueryDataSource?: boolean;
@@ -404,15 +474,25 @@ export class RelationSettings extends SignalWatcher(
           style="height: 1px; background: var(--affine-border-color); margin: 4px 0;"
         ></div>
 
-        <div
-          class="dv-hover"
-          style="display: flex; align-items: center; padding: 8px; border-radius: 4px; cursor: pointer; color: var(--affine-warning-color);"
-          @click="${this.cleanUpOrphanedRelations}"
-        >
-          <div style="font-size: 14px;">Clean up missing records</div>
-        </div>
+        ${!(
+          isCrossTeamspaceRelationFlagOn(store) &&
+          isCrossDocRelationStore(store, data)
+        )
+          ? html` <div
+              class="dv-hover"
+              style="display: flex; align-items: center; padding: 8px; border-radius: 4px; cursor: pointer; color: var(--affine-warning-color);"
+              @click="${this.cleanUpOrphanedRelations}"
+            >
+              <div style="font-size: 14px;">Clean up missing records</div>
+            </div>`
+          : null}
 
-        ${data.isBidirectional && data.reversePropertyId
+        ${data.isBidirectional &&
+        data.reversePropertyId &&
+        !(
+          isCrossTeamspaceRelationFlagOn(store) &&
+          isCrossDocRelationStore(store, data)
+        )
           ? html`
               <div
                 class="dv-hover"
@@ -433,18 +513,102 @@ const RelationSettingsUni = createUniComponentFromWebComponent<{
 }>(RelationSettings);
 
 export class RelationCell extends BaseCellRenderer<string[]> {
-  // We don't have CSS variables yet, so using inline styles for now
+  @state()
+  private accessor _remoteCaps: {
+    canReadRelay: boolean;
+    canMutateRelation: boolean;
+  } | null = null;
+
+  @state()
+  private accessor _remoteRows: ResolvedRelationRow[] | null = null;
+
+  private _remoteSyncGen = 0;
+  private _lastRemoteKey = '';
+
+  override updated(_changed: PropertyValues) {
+    super.updated(_changed);
+    void this._refreshCrossTeamspaceRemote();
+  }
+
+  private async _refreshCrossTeamspaceRemote() {
+    const dataSource = this.view.manager.dataSource as any;
+    const store = dataSource.doc as Store;
+    const propData = this.property.data$.value as {
+      targetDatabaseId?: string;
+      targetDocId?: string;
+    };
+    if (
+      !isCrossTeamspaceRelationFlagOn(store) ||
+      !isCrossDocRelationStore(store, propData)
+    ) {
+      if (this._remoteCaps !== null || this._remoteRows !== null) {
+        this._remoteCaps = null;
+        this._remoteRows = null;
+        this._lastRemoteKey = '';
+      }
+      return;
+    }
+    const host = store.getOptional(CrossTeamspaceRelationHostService);
+    if (!host?.isActive()) {
+      if (this._remoteCaps !== null || this._remoteRows !== null) {
+        this._remoteCaps = null;
+        this._remoteRows = null;
+        this._lastRemoteKey = '';
+      }
+      return;
+    }
+    const tid = propData.targetDocId as string;
+    const tdb = propData.targetDatabaseId as string;
+    const ids = this.value ?? [];
+    const key = `${store.id}|${tid}|${tdb}|${ids.join(',')}`;
+    if (key === this._lastRemoteKey && this._remoteRows !== null) {
+      return;
+    }
+    this._lastRemoteKey = key;
+    const gen = ++this._remoteSyncGen;
+    try {
+      const caps = await host.getCapabilities(store.id, tid);
+      if (gen !== this._remoteSyncGen) {
+        return;
+      }
+      this._remoteCaps = caps;
+      if (!caps.canReadRelay) {
+        this._remoteRows = [];
+        return;
+      }
+      if (ids.length === 0) {
+        this._remoteRows = [];
+        return;
+      }
+      const rows = await host.resolveRows(store.id, tid, tdb, ids);
+      if (gen !== this._remoteSyncGen) {
+        return;
+      }
+      this._remoteRows = rows;
+    } catch {
+      if (gen === this._remoteSyncGen) {
+        this._remoteRows = [];
+      }
+    }
+  }
 
   override render() {
     const dataSource = this.view.manager.dataSource as any;
     const store = dataSource.doc as Store;
     const propData = this.property.data$.value as {
       targetDatabaseId?: string;
+      targetDocId?: string;
       crossWorkspaceRelayReadOnly?: boolean;
       crossWorkspaceTargetWorkspaceId?: string;
     };
     const targetDatabaseId = propData.targetDatabaseId as string;
-    const relayUx = isCrossWorkspaceRelayColumnUx(store, propData);
+    const crossWorkspaceRelayUx = isCrossWorkspaceRelayColumnUx(store, propData);
+    const crossDocUx =
+      isCrossTeamspaceRelationFlagOn(store) &&
+      isCrossDocRelationStore(store, propData);
+    const crossTeamspaceRelayUx =
+      crossDocUx && this._remoteCaps?.canMutateRelation !== true;
+    const relayUx = crossWorkspaceRelayUx || crossTeamspaceRelayUx;
 
     if (!targetDatabaseId) {
       return html`
@@ -456,32 +620,50 @@ export class RelationCell extends BaseCellRenderer<string[]> {
       `;
     }
 
-    // Editing logic is handled via popRowSelect in afterEnterEditingMode
     if (this.isEditing$.value) {
       return html`<div style="padding: 4px; opacity: 0.5;">Picking...</div>`;
     }
 
-    // Read mode: auto-remove deleted/orphan relation IDs so chips don't
-    // keep showing stale titles.
     let relationIds = this.value ?? [];
 
-    const targetDb = store.getBlock(targetDatabaseId)?.model as any;
-    const validIds = targetDb?.children
-      ? new Set<string>(targetDb.children.map((c: any) => c.id))
-      : null;
-    if (validIds) {
+    if (!crossDocUx) {
+      const targetDb = store.getBlock(targetDatabaseId)?.model as any;
+      const validIds = targetDb?.children
+        ? new Set<string>(targetDb.children.map((c: any) => c.id))
+        : null;
+      if (validIds) {
+        const filtered = filterRelationIdsByValidSet(relationIds, validIds);
+        const isSame =
+          filtered.length === relationIds.length &&
+          filtered.every((id, idx) => id === relationIds[idx]);
+        if (!isSame) {
+          this.valueSetNextTick(filtered);
+          relationIds = filtered;
+        }
+      }
+    } else if (
+      this._remoteRows !== null &&
+      this._remoteCaps?.canReadRelay
+    ) {
+      const validIds = new Set(
+        this._remoteRows.filter(r => r.exists).map(r => r.rowId)
+      );
       const filtered = filterRelationIdsByValidSet(relationIds, validIds);
       const isSame =
         filtered.length === relationIds.length &&
         filtered.every((id, idx) => id === relationIds[idx]);
       if (!isSame) {
-        // Update after render to avoid render/update cycles.
         this.valueSetNextTick(filtered);
         relationIds = filtered;
       }
     }
 
-    // Read mode
+    const crossDocNoAccess =
+      crossDocUx &&
+      this._remoteCaps &&
+      !this._remoteCaps.canReadRelay &&
+      relationIds.length > 0;
+
     return html`
       <div style="display: flex; gap: 4px; flex-wrap: wrap; padding: 4px 0;">
         ${relayUx
@@ -490,39 +672,59 @@ export class RelationCell extends BaseCellRenderer<string[]> {
               >View only</span
             >`
           : null}
-        ${relationIds.length === 0
-          ? html`<span style="color: var(--affine-placeholder-color);"
-              >Empty</span
+        ${crossDocNoAccess
+          ? html`<span
+              style="font-size: 12px; color: var(--affine-text-secondary-color); width: 100%;"
+              >Cannot load referenced rows</span
             >`
-          : repeat(
-              relationIds,
-              id => id,
-              id => html`
-                <div
-                  style="padding: 2px 6px; background: var(--affine-background-tertiary-color); border-radius: 4px; font-size: 12px; cursor: ${relayUx
-                    ? 'default'
-                    : 'pointer'};"
-                  @click="${(e: MouseEvent) => {
-                    e.stopPropagation();
-                    if (relayUx) return;
-                    this.dispatchEvent(
-                      new CustomEvent('affine-database-row-peek-request', {
-                        detail: {
-                          databaseId: targetDatabaseId,
-                          rowId: id as string,
-                        },
-                        bubbles: true,
-                        composed: true,
-                      })
+          : relationIds.length === 0
+            ? html`<span style="color: var(--affine-placeholder-color);"
+                >Empty</span
+              >`
+            : repeat(
+                relationIds,
+                id => id,
+                id => {
+                  const remote = this._remoteRows?.find(r => r.rowId === id);
+                  let label: string;
+                  if (crossDocUx) {
+                    if (this._remoteRows === null) {
+                      label = '…';
+                    } else if (remote) {
+                      label = remote.title;
+                    } else {
+                      label = '…';
+                    }
+                  } else {
+                    label = getRowTitle(
+                      (this.view.manager.dataSource as any).doc,
+                      id as string
                     );
-                  }}"
-                >
-                  ${getRowTitle(
-                    (this.view.manager.dataSource as any).doc,
-                    id as string
-                  )}
-                </div>
-              `
+                  }
+                return html`
+                  <div
+                    style="padding: 2px 6px; background: var(--affine-background-tertiary-color); border-radius: 4px; font-size: 12px; cursor: ${relayUx
+                      ? 'default'
+                      : 'pointer'};"
+                    @click="${(e: MouseEvent) => {
+                      e.stopPropagation();
+                      if (relayUx) return;
+                      this.dispatchEvent(
+                        new CustomEvent('affine-database-row-peek-request', {
+                          detail: {
+                            databaseId: targetDatabaseId,
+                            rowId: id as string,
+                          },
+                          bubbles: true,
+                          composed: true,
+                        })
+                      );
+                    }}"
+                  >
+                    ${label}
+                  </div>
+                `;
+              }
             )}
       </div>
     `;
@@ -532,6 +734,7 @@ export class RelationCell extends BaseCellRenderer<string[]> {
     const store = (this.view.manager.dataSource as any).doc as Store;
     const propData = this.property.data$.value as {
       targetDatabaseId?: string;
+      targetDocId?: string;
       crossWorkspaceRelayReadOnly?: boolean;
       crossWorkspaceTargetWorkspaceId?: string;
     };
@@ -539,6 +742,9 @@ export class RelationCell extends BaseCellRenderer<string[]> {
       this.selectCurrentCell(false);
       return;
     }
+    const crossDocUx =
+      isCrossTeamspaceRelationFlagOn(store) &&
+      isCrossDocRelationStore(store, propData);
 
     const targetDatabaseId = propData.targetDatabaseId as string;
     if (!targetDatabaseId) {
@@ -546,13 +752,43 @@ export class RelationCell extends BaseCellRenderer<string[]> {
       return;
     }
 
-    popRowSelect(popupTargetFromElement(this), {
-      store: (this.view.manager.dataSource as any).doc,
-      targetDbId: targetDatabaseId,
-      value: this.value ?? [],
-      onChange: val => this.valueSetImmediate(val),
-      onComplete: () => this.selectCurrentCell(false),
-    });
+    const openPicker = (pickerStore: Store) => {
+      popRowSelect(popupTargetFromElement(this), {
+        store: pickerStore,
+        targetDbId: targetDatabaseId,
+        value: this.value ?? [],
+        onChange: val => this.valueSetImmediate(val),
+        onComplete: () => this.selectCurrentCell(false),
+      });
+    };
+
+    if (crossDocUx) {
+      const host = store.getOptional(CrossTeamspaceRelationHostService);
+      if (!host?.isActive()) {
+        this.selectCurrentCell(false);
+        return;
+      }
+      const td = propData.targetDocId as string;
+      void (async () => {
+        const caps = await host.getCapabilities(store.id, td);
+        if (!caps.canMutateRelation) {
+          this.selectCurrentCell(false);
+          return;
+        }
+        let pickerStore = store;
+        if (td.length > 0 && td !== store.id) {
+          const doc = store.workspace.getDoc(td);
+          const sub = doc?.getStore({ id: td });
+          if (sub) {
+            pickerStore = sub;
+          }
+        }
+        openPicker(pickerStore);
+      })();
+      return;
+    }
+
+    openPicker(store);
   }
 }
 

@@ -8,7 +8,13 @@ import {
   yjsObservePath,
 } from '@toeverything/infra';
 import { nanoid } from 'nanoid';
-import { combineLatest, distinctUntilChanged, map, switchMap, startWith } from 'rxjs';
+import {
+  combineLatest,
+  distinctUntilChanged,
+  map,
+  switchMap,
+  startWith,
+} from 'rxjs';
 import { Array as YArray, Map as YMap, transact } from 'yjs';
 
 import type { WorkspaceService } from '../../workspace';
@@ -66,11 +72,15 @@ export class DocsStore extends Store {
   }
 
   private pipeFilter() {
-    this.teamspaceService.fetchAccessibleDocIds(this.workspaceService.workspace.id);
-    return (source: import('rxjs').Observable<string[]>) => 
+    this.teamspaceService.fetchAccessibleDocIds(
+      this.workspaceService.workspace.id
+    );
+    return (source: import('rxjs').Observable<string[]>) =>
       combineLatest([
         source,
-        this.teamspaceService.accessibleDocIds$.asObservable().pipe(startWith(this.teamspaceService.accessibleDocIds$.value))
+        this.teamspaceService.accessibleDocIds$
+          .asObservable()
+          .pipe(startWith(this.teamspaceService.accessibleDocIds$.value)),
       ]).pipe(
         map(([docIds, accessibleDocIds]) => {
           if (accessibleDocIds === null) {
@@ -87,7 +97,9 @@ export class DocsStore extends Store {
   }
 
   private pipeFilterWithId<T extends { id: string }>() {
-    this.teamspaceService.fetchAccessibleDocIds(this.workspaceService.workspace.id);
+    this.teamspaceService.fetchAccessibleDocIds(
+      this.workspaceService.workspace.id
+    );
     return (source: import('rxjs').Observable<T[]>) =>
       combineLatest([
         source,

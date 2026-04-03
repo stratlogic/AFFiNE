@@ -105,3 +105,7 @@ yarn affine server prisma studio
 ```sh
 yarn affine server seed -h
 ```
+
+### Cross-teamspace database relations (self-hosted)
+
+Optional relay for relation columns across pages is controlled server-side (`AFFINE_CROSS_TEAMSPACE_RELATION` in `packages/backend/server/.env.example`). See [self-host-cross-teamspace-relations.md](./self-host-cross-teamspace-relations.md) for prerequisites and client flags.

@@ -8,16 +8,37 @@ import {
   filterRelationIdsByValidSet,
   getRowLinkedPageTarget,
   getRowTitle,
+  isCrossDocRelationStore,
+  isCrossTeamspaceRelationFlagOn,
   isCrossWorkspaceRelayColumnUx,
 } from '../property-presets/relation/cell-renderer.js';
 
 function storeWithCrossWorkspaceFlag(enabled: boolean): Store {
   return {
+    id: 'doc-a',
     get(svc: unknown) {
       if (svc === FeatureFlagService) {
         return {
           getFlag(key: string) {
-            return key === 'enable_cross_workspace_relation' ? enabled : false;
+            if (key === 'enable_cross_workspace_relation') return enabled;
+            return false;
+          },
+        };
+      }
+      throw new Error('unexpected store.get');
+    },
+  } as unknown as Store;
+}
+
+function storeWithTeamspaceFlag(enabled: boolean): Store {
+  return {
+    id: 'doc-a',
+    get(svc: unknown) {
+      if (svc === FeatureFlagService) {
+        return {
+          getFlag(key: string) {
+            if (key === 'enable_cross_teamspace_relation') return enabled;
+            return false;
           },
         };
       }
@@ -27,6 +48,22 @@ function storeWithCrossWorkspaceFlag(enabled: boolean): Store {
 }
 
 describe('relation cell renderer edge cases', () => {
+  it('isCrossTeamspaceRelationFlagOn reads feature flag', () => {
+    expect(isCrossTeamspaceRelationFlagOn(storeWithTeamspaceFlag(false))).toBe(
+      false
+    );
+    expect(isCrossTeamspaceRelationFlagOn(storeWithTeamspaceFlag(true))).toBe(
+      true
+    );
+  });
+
+  it('isCrossDocRelationStore requires target doc different from store', () => {
+    const s = storeWithTeamspaceFlag(true);
+    expect(isCrossDocRelationStore(s, {})).toBe(false);
+    expect(isCrossDocRelationStore(s, { targetDocId: 'doc-a' })).toBe(false);
+    expect(isCrossDocRelationStore(s, { targetDocId: 'doc-b' })).toBe(true);
+  });
+
   it('isCrossWorkspaceRelayColumnUx requires flag and metadata', () => {
     const storeOff = storeWithCrossWorkspaceFlag(false);
     expect(

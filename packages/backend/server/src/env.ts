@@ -105,6 +105,14 @@ export class Env implements AppEnv {
     return process.env.AFFINE_CROSS_WORKSPACE_RELATION_RELAY === 'true';
   }
 
+  /**
+   * Cross-teamspace / cross-doc database relation relay (same workspace).
+   * Opt-out: set AFFINE_CROSS_TEAMSPACE_RELATION=false
+   */
+  get crossTeamspaceRelationEnabled() {
+    return process.env.AFFINE_CROSS_TEAMSPACE_RELATION !== 'false';
+  }
+
   get selfhosted() {
     return this.DEPLOYMENT_TYPE === DeploymentType.Selfhosted;
   }

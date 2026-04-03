@@ -6,6 +6,7 @@ import type { Observable } from 'rxjs';
 import { Doc as YDoc, transact } from 'yjs';
 
 import { DocsService } from '../../doc/services/docs';
+import { TeamspaceService } from '../../teamspace';
 import { WorkspaceImpl } from '../impls/workspace';
 import type { WorkspaceScope } from '../scopes/workspace';
 import { WorkspaceEngineService } from '../services/engine';
@@ -36,6 +37,7 @@ export class Workspace extends Entity {
         id: this.openOptions.metadata.id,
         rootDoc: this.rootYDoc,
         featureFlagService: this.featureFlagService,
+        teamspaceService: this.scope.getOptional(TeamspaceService),
         blobSource: {
           get: async key => {
             const record = await this.engine.blob.get(key);

@@ -3,6 +3,7 @@ import type { FeatureFlagService } from '@affine/core/modules/feature-flag';
 import { StoreExtensionManager } from '@blocksuite/affine/ext-loader';
 import { getInternalStoreExtensions } from '@blocksuite/affine/extensions/store';
 
+import { CrossTeamspaceRelationHostStoreExtension } from '../store-extensions/cross-teamspace-relation';
 import { FeatureFlagStoreExtension } from '../store-extensions/feature-flag';
 
 interface Configure {
@@ -29,6 +30,7 @@ class StoreProvider {
       ...getInternalStoreExtensions(),
       AIStoreExtension,
       FeatureFlagStoreExtension,
+      CrossTeamspaceRelationHostStoreExtension,
     ]);
   }
 

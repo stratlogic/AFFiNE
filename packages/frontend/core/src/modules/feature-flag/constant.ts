@@ -2,6 +2,9 @@ import type { FlagInfo } from './types';
 
 // const isNotStableBuild = BUILD_CONFIG.appBuildType !== 'stable';
 const isCanaryBuild = BUILD_CONFIG.appBuildType === 'canary';
+/** Self-hosted web builds can expose experimental workspace flags on stable (see docs/self-host-cross-teamspace-relations.md). */
+const isSelfHostedWeb =
+  typeof environment !== 'undefined' && environment.isSelfHosted;
 const isMobile = BUILD_CONFIG.isMobileEdition;
 const isIOS = BUILD_CONFIG.isIOS;
 
@@ -311,6 +314,15 @@ export const AFFINE_FLAGS = {
     description:
       'When enabled with server AFFINE_CROSS_WORKSPACE_RELATION_RELAY, prepares cross-workspace relation UX; relay APIs are incremental.',
     configurable: isCanaryBuild,
+    defaultState: false,
+  },
+  enable_cross_teamspace_relation: {
+    category: 'blocksuite',
+    bsFlag: 'enable_cross_teamspace_relation',
+    displayName: 'Cross-teamspace database relations (experimental)',
+    description:
+      'Relate tables across pages/teamspaces in the same cloud workspace with server-mediated row labels.',
+    configurable: isCanaryBuild || isSelfHostedWeb,
     defaultState: false,
   },
 } satisfies { [key in string]: FlagInfo };

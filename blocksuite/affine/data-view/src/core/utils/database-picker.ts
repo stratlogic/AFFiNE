@@ -9,6 +9,8 @@ export interface DatabaseEntry {
   id: string;
   title: string;
   docTitle?: string;
+  /** Page containing the database; omit when same as `store.id`. */
+  sourceDocId?: string;
 }
 
 /**
@@ -25,6 +27,35 @@ export function findAllDatabases(store: Store): DatabaseEntry[] {
     title: (block.model as any).props?.title?.toString() || 'Untitled Database',
     docTitle,
   }));
+}
+
+/**
+ * All `affine:database` blocks across every loaded page in the workspace (for cross-doc relations).
+ */
+export function findAllDatabasesInWorkspace(store: Store): DatabaseEntry[] {
+  const out: DatabaseEntry[] = [];
+  for (const meta of store.workspace.meta.docMetas) {
+    const doc = store.workspace.getDoc(meta.id);
+    if (!doc) {
+      continue;
+    }
+    let subStore: Store;
+    try {
+      subStore = doc.getStore({ id: meta.id });
+    } catch {
+      continue;
+    }
+    const pageTitle = meta.title;
+    for (const block of subStore.getBlocksByFlavour('affine:database')) {
+      out.push({
+        id: block.id,
+        title: (block.model as any).props?.title?.toString() || 'Untitled Database',
+        docTitle: pageTitle,
+        sourceDocId: meta.id === store.id ? undefined : meta.id,
+      });
+    }
+  }
+  return out;
 }
 
 /**

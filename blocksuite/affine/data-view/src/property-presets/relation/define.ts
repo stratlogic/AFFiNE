@@ -7,6 +7,8 @@ export const relationPropertyType = propertyType('relation');
 
 export const RelationPropertySchema = zod.object({
   targetDatabaseId: zod.string(),
+  /** When set and different from the source doc id, target DB lives in another page (cross-teamspace / cross-doc). */
+  targetDocId: zod.string().optional(),
   isBidirectional: zod.boolean().default(true),
   isReverse: zod.boolean().default(false),
   reversePropertyId: zod.string().nullable().default(null),
@@ -24,6 +26,7 @@ export const relationPropertyModelConfig = relationPropertyType.modelConfig({
     schema: RelationPropertySchema,
     default: () => ({
       targetDatabaseId: '',
+      targetDocId: undefined,
       isBidirectional: true,
       isReverse: false,
       reversePropertyId: null,

@@ -1,7 +1,8 @@
 import { WriterInfoServiceExtension } from '@blocksuite/affine/shared/services';
 import { OnEvent, Service } from '@toeverything/infra';
 
-import { type Workspace, WorkspaceInitialized } from '../../workspace';
+import type { Workspace } from '../../workspace/entities/workspace';
+import { WorkspaceInitialized } from '../../workspace/events';
 import type { DocImpl } from '../../workspace/impls/doc';
 import type { WorkspaceServerService } from './workspace-server';
 

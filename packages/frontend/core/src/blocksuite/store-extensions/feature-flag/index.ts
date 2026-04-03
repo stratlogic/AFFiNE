@@ -1,3 +1,4 @@
+import { getCrossTeamspaceServerFlagSyncer } from '@affine/core/blocksuite/store-extensions/feature-flag/cross-teamspace-server-flag-syncer';
 import { getFeatureFlagSyncer } from '@affine/core/blocksuite/store-extensions/feature-flag/feature-flag-syncer';
 import { FeatureFlagService } from '@affine/core/modules/feature-flag';
 import {
@@ -25,5 +26,6 @@ export class FeatureFlagStoreExtension extends StoreExtensionProvider {
       return;
     }
     context.register(getFeatureFlagSyncer(featureFlagService));
+    context.register(getCrossTeamspaceServerFlagSyncer());
   }
 }

@@ -779,6 +779,27 @@ type CredentialsRequirementType {
   password: PasswordLimitsType!
 }
 
+"""Cross-teamspace relation permission capabilities"""
+type CrossTeamspaceRelationCapabilitiesType {
+  """
+  User may edit relation column config and cell values (both teamspaces for non-admin)
+  """
+  canMutateRelation: Boolean!
+
+  """User may call relation row resolve (read chip labels)"""
+  canReadRelay: Boolean!
+}
+
+"""Resolved database row for a relation cell"""
+type CrossTeamspaceRelationRowType {
+  """False if row or database block is missing in the snapshot"""
+  exists: Boolean!
+  rowId: ID!
+
+  """Display title extracted from snapshot"""
+  title: String!
+}
+
 """
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
@@ -1941,6 +1962,21 @@ type Query {
 
   """Apply updates to a doc using LLM and return the merged markdown."""
   applyDocUpdates(docId: String!, op: String!, updates: String!, workspaceId: String!): String! @deprecated(reason: "use Mutation.applyDocUpdates")
+
+  """
+  Capabilities for cross-doc database relations within a workspace (used by relation column UI)
+  """
+  crossTeamspaceRelationCapabilities(sourceDocId: ID!, targetDocId: ID!, workspaceId: ID!): CrossTeamspaceRelationCapabilitiesType!
+
+  """
+  Whether cross-teamspace / cross-doc database relation relay is enabled on this server.
+  """
+  crossTeamspaceRelationEnabled: Boolean!
+
+  """
+  Resolve relation row titles from the target page snapshot (server-mediated read)
+  """
+  crossTeamspaceRelationRows(databaseBlockId: ID!, rowIds: [String!]!, sourceDocId: ID!, targetDocId: ID!, workspaceId: ID!): [CrossTeamspaceRelationRowType!]!
 
   """
   Whether server-mediated cross-workspace database relation relay is enabled.

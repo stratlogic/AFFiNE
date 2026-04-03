@@ -1,4 +1,10 @@
+import type {
+  RelationCapabilities,
+  ResolvedRelationRow,
+  TeamspaceRelationBridge,
+} from '@blocksuite/affine-shared/services';
 import { LiveData, Service } from '@toeverything/infra';
+
 import { WorkspaceServerService } from '../../cloud';
 
 export interface Teamspace {
@@ -94,13 +100,125 @@ const addTeamspaceMemberMutation = {
   }`,
 };
 
-export class TeamspaceService extends Service {
+const crossTeamspaceRelationCapabilitiesQuery = {
+  id: 'crossTeamspaceRelationCapabilitiesQuery' as const,
+  op: 'crossTeamspaceRelationCapabilities',
+  query: `query crossTeamspaceRelationCapabilities($workspaceId: ID!, $sourceDocId: ID!, $targetDocId: ID!) {
+    crossTeamspaceRelationCapabilities(workspaceId: $workspaceId, sourceDocId: $sourceDocId, targetDocId: $targetDocId) {
+      canReadRelay
+      canMutateRelation
+    }
+  }`,
+};
+
+const crossTeamspaceRelationRowsQuery = {
+  id: 'crossTeamspaceRelationRowsQuery' as const,
+  op: 'crossTeamspaceRelationRows',
+  query: `query crossTeamspaceRelationRows($workspaceId: ID!, $sourceDocId: ID!, $targetDocId: ID!, $databaseBlockId: ID!, $rowIds: [String!]!) {
+    crossTeamspaceRelationRows(workspaceId: $workspaceId, sourceDocId: $sourceDocId, targetDocId: $targetDocId, databaseBlockId: $databaseBlockId, rowIds: $rowIds) {
+      rowId
+      title
+      exists
+    }
+  }`,
+};
+
+const crossTeamspaceRelationEnabledQuery = {
+  id: 'crossTeamspaceRelationEnabledQuery' as const,
+  op: 'crossTeamspaceRelationEnabled',
+  query: `query crossTeamspaceRelationEnabled {
+    crossTeamspaceRelationEnabled
+  }`,
+};
+
+export class TeamspaceService extends Service implements TeamspaceRelationBridge {
   public accessibleDocIds$ = new LiveData<string[] | null>(null);
   public teamspaces$ = new LiveData<Teamspace[]>([]);
   private activeWorkspaceId: string | null = null;
 
   constructor(private readonly workspaceServerService: WorkspaceServerService) {
     super();
+  }
+
+  hasCloudBackend(): boolean {
+    return !!this.workspaceServerService.server;
+  }
+
+  /**
+   * Server kill-switch for cross-teamspace relation relay. When false, clients should not
+   * enable the BlockSuite flag (see cross-teamspace-server-flag-syncer).
+   */
+  async fetchCrossTeamspaceRelationServerEnabled(): Promise<boolean> {
+    const server = this.workspaceServerService.server;
+    if (!server) {
+      return false;
+    }
+    try {
+      const res = (await server.gql({
+        query: crossTeamspaceRelationEnabledQuery,
+      } as any)) as { crossTeamspaceRelationEnabled?: boolean };
+      return res?.crossTeamspaceRelationEnabled ?? false;
+    } catch (e) {
+      console.warn('crossTeamspaceRelationEnabled query failed', e);
+      return false;
+    }
+  }
+
+  async crossTeamspaceRelationCapabilities(
+    workspaceId: string,
+    sourceDocId: string,
+    targetDocId: string
+  ): Promise<RelationCapabilities> {
+    const server = this.workspaceServerService.server;
+    if (!server) {
+      return { canReadRelay: false, canMutateRelation: false };
+    }
+    try {
+      const res = (await server.gql({
+        query: crossTeamspaceRelationCapabilitiesQuery,
+        variables: { workspaceId, sourceDocId, targetDocId },
+      } as any)) as {
+        crossTeamspaceRelationCapabilities?: RelationCapabilities;
+      };
+      return (
+        res?.crossTeamspaceRelationCapabilities ?? {
+          canReadRelay: false,
+          canMutateRelation: false,
+        }
+      );
+    } catch (e) {
+      console.warn('crossTeamspaceRelationCapabilities failed', e);
+      return { canReadRelay: false, canMutateRelation: false };
+    }
+  }
+
+  async crossTeamspaceRelationRows(
+    workspaceId: string,
+    sourceDocId: string,
+    targetDocId: string,
+    databaseBlockId: string,
+    rowIds: string[]
+  ): Promise<ResolvedRelationRow[]> {
+    const server = this.workspaceServerService.server;
+    if (!server) {
+      return [];
+    }
+    try {
+      const res = (await server.gql({
+        query: crossTeamspaceRelationRowsQuery,
+        variables: {
+          workspaceId,
+          sourceDocId,
+          targetDocId,
+          databaseBlockId,
+          rowIds,
+        },
+      } as any)) as { crossTeamspaceRelationRows?: ResolvedRelationRow[] };
+      return res?.crossTeamspaceRelationRows ?? [];
+    } catch (e) {
+      console.warn('crossTeamspaceRelationRows failed', e);
+      return [];
+    }
   }
 
   private fetchDocIdsPromise: Promise<void> | null = null;

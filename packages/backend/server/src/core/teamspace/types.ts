@@ -88,7 +88,6 @@ export class TeamspaceType {
   currentUserRole?: TeamspaceRole | null;
 }
 
-
 @ObjectType()
 export class TeamspaceDocType {
   @Field(() => ID, { description: 'Doc ID' })
