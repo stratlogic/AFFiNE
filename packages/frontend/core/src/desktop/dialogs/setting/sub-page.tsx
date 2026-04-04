@@ -3,7 +3,7 @@ import { FeatureFlagService } from '@affine/core/modules/feature-flag';
 import { type Island } from '@affine/core/utils/island';
 import { ArrowLeftBigIcon } from '@blocksuite/icons/rc';
 import { useLiveData, useService } from '@toeverything/infra';
-import { eases, waapi } from 'animejs';
+import { cubicBezier, waapi } from 'animejs';
 import clsx from 'clsx';
 import {
   createContext,
@@ -52,7 +52,7 @@ export const SubPageTarget = () => {
   ));
 };
 
-const ease = eases.cubicBezier(0.25, 0.36, 0.24, 0.97);
+const ease = cubicBezier(0.25, 0.36, 0.24, 0.97);
 
 export const SubPageProvider = ({
   island,

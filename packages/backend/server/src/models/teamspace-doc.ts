@@ -36,6 +36,17 @@ export class TeamspaceDocModel extends BaseModel {
     });
   }
 
+  /** Teamspace assignment for `docId` within a single cloud workspace (may differ from another doc's teamspace). */
+  async findByDocForWorkspace(docId: string, workspaceId: string) {
+    return await this.db.teamspaceDoc.findFirst({
+      where: {
+        docId,
+        teamspace: { workspaceId },
+      },
+      select: { teamspaceId: true },
+    });
+  }
+
   async findByTeamspace(teamspaceId: string) {
     return await this.db.teamspaceDoc.findMany({
       where: { teamspaceId },
@@ -55,7 +66,10 @@ export class TeamspaceDocModel extends BaseModel {
    * Get all doc IDs accessible to a user across their teamspace memberships.
    * This includes docs in teamspaces the user is a member of.
    */
-  async getAccessibleDocIds(workspaceId: string, userId: string): Promise<Set<string>> {
+  async getAccessibleDocIds(
+    workspaceId: string,
+    userId: string
+  ): Promise<Set<string>> {
     const docs = await this.db.teamspaceDoc.findMany({
       where: {
         teamspace: {

@@ -1,7 +1,7 @@
 import { openSingleFileWith } from '@blocksuite/affine-shared/utils';
 import { BlockSuiteError, ErrorCode } from '@blocksuite/global/exceptions';
 import type { Bound } from '@blocksuite/global/gfx';
-import c from 'simple-xml-to-json';
+import { convertXML } from 'simple-xml-to-json';
 
 type MindMapNode = {
   children: MindMapNode[];
@@ -51,7 +51,7 @@ async function parseMmFile(file: File): Promise<MindMapNode> {
   const content = await readAsText(file);
 
   try {
-    const parsed = c.convertXML(content);
+    const parsed = convertXML(content);
     const map = parsed.map.children[0];
 
     const traverse = (node: RawMmNode): MindMapNode | null => {
@@ -107,7 +107,7 @@ async function parseOPMLFile(file: File): Promise<MindMapNode> {
   const content = await readAsText(file);
 
   try {
-    const parsed = c.convertXML(content);
+    const parsed = convertXML(content);
     const outline = parsed.opml?.children[1].body?.children?.[0];
 
     const traverse = (node: RawOPMLOutline): MindMapNode | null => {

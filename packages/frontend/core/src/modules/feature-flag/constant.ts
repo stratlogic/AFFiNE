@@ -323,7 +323,7 @@ export const AFFINE_FLAGS = {
     description:
       'Relate tables across pages/teamspaces in the same cloud workspace with server-mediated row labels.',
     configurable: isCanaryBuild || isSelfHostedWeb,
-    defaultState: false,
+    defaultState: isCanaryBuild || isSelfHostedWeb,
   },
 } satisfies { [key in string]: FlagInfo };
 

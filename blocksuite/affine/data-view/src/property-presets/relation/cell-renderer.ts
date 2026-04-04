@@ -17,8 +17,8 @@ import { SignalWatcher, WithDisposable } from '@blocksuite/global/lit';
 import { ShadowlessElement } from '@blocksuite/std';
 import type { Store } from '@blocksuite/store';
 import { signal } from '@preact/signals-core';
-import { html } from 'lit';
 import type { PropertyValues } from 'lit';
+import { html } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 
@@ -27,6 +27,7 @@ import { createFromBaseCellRenderer } from '../../core/property/renderer.js';
 import {
   findAllDatabases,
   findAllDatabasesInWorkspace,
+  resolveCrossDocPickerStore,
 } from '../../core/utils/database-picker.js';
 import { createUniComponentFromWebComponent } from '../../core/utils/uni-component/index.js';
 import { createIcon } from '../../core/utils/uni-icon.js';
@@ -89,7 +90,9 @@ export function isCrossDocRelationStore(
 }
 
 export function isCrossTeamspaceRelationFlagOn(store: Store): boolean {
-  return store.get(FeatureFlagService).getFlag('enable_cross_teamspace_relation');
+  return store
+    .get(FeatureFlagService)
+    .getFlag('enable_cross_teamspace_relation');
 }
 
 function getLinkedReferenceTitle(
@@ -150,6 +153,12 @@ export function filterRelationIdsByValidSet(
 ): string[] {
   if (!ids?.length) return [];
   return ids.filter(id => validIds.has(id));
+}
+
+/** Label for cross-doc relation chips when server relay is not available (view-only). */
+export function viewOnlyCrossDocRelationChipLabel(rowId: string): string {
+  if (!rowId) return 'Linked record';
+  return rowId.length <= 12 ? rowId : `Linked record (${rowId.slice(0, 8)}…)`;
 }
 
 // Helper to pop the row select menu
@@ -360,19 +369,43 @@ export class RelationSettings extends SignalWatcher(
         </div>
       `;
     }
-    const databases = isCrossTeamspaceRelationFlagOn(store)
+    const crossTeamspaceFlagOn = isCrossTeamspaceRelationFlagOn(store);
+    const databases = crossTeamspaceFlagOn
       ? findAllDatabasesInWorkspace(store)
       : findAllDatabases(store);
     const targetDatabase = data.targetDatabaseId
       ? store.getBlock(data.targetDatabaseId)?.model
       : null;
+    const targetDbFromList = databases.find(
+      d =>
+        d.id === data.targetDatabaseId &&
+        (d.sourceDocId ?? store.id) === (data.targetDocId ?? store.id)
+    );
     const targetDatabaseName =
-      (targetDatabase as any)?.props?.title?.toString() || 'Select database';
+      (targetDatabase as any)?.props?.title?.toString() ||
+      targetDbFromList?.title ||
+      'Select database';
 
     return html`
       <div
         style="display: flex; flex-direction: column; gap: 4px; padding: 4px;"
       >
+        ${!crossTeamspaceFlagOn
+          ? html`<div
+              style="font-size: 11px; color: var(--affine-text-secondary-color); padding: 0 8px 4px; line-height: 1.4;"
+            >
+              Turn on
+              <strong>Cross-teamspace database relations</strong>
+              in workspace Settings → Experimental features to link a table on
+              another page (same cloud workspace).
+            </div>`
+          : html`<div
+              style="font-size: 11px; color: var(--affine-text-secondary-color); padding: 0 8px 4px; line-height: 1.4;"
+            >
+              Databases on other pages are labeled with their doc title. Cloud
+              sync and access on both pages are required for linking and
+              editing.
+            </div>`}
         ${this.renderSubMenuRow(
           'Relation to',
           targetDatabaseName,
@@ -410,7 +443,7 @@ export class RelationSettings extends SignalWatcher(
                             (data.targetDocId ?? store.id),
                         select: () => {
                           const cross =
-                            isCrossTeamspaceRelationFlagOn(store) &&
+                            crossTeamspaceFlagOn &&
                             !!db.sourceDocId &&
                             db.sourceDocId !== store.id;
                           this.column.dataUpdate(d => ({
@@ -431,11 +464,10 @@ export class RelationSettings extends SignalWatcher(
 
         <div
           class="dv-hover"
-          style="display: flex; align-items: center; justify-content: space-between; padding: 8px; border-radius: 4px; cursor: ${isCrossTeamspaceRelationFlagOn(
-            store
-          ) && isCrossDocRelationStore(store, data)
+          style="display: flex; align-items: center; justify-content: space-between; padding: 8px; border-radius: 4px; cursor: ${crossTeamspaceFlagOn &&
+          isCrossDocRelationStore(store, data)
             ? 'default'
-            : 'pointer'}; opacity: ${isCrossTeamspaceRelationFlagOn(store) &&
+            : 'pointer'}; opacity: ${crossTeamspaceFlagOn &&
           isCrossDocRelationStore(store, data)
             ? '0.5'
             : '1'};"
@@ -448,13 +480,11 @@ export class RelationSettings extends SignalWatcher(
               this.toggleBidirectional(new MouseEvent('click'))}"
           ></toggle-switch>
         </div>
-        ${isCrossTeamspaceRelationFlagOn(store) &&
-        isCrossDocRelationStore(store, data)
+        ${crossTeamspaceFlagOn && isCrossDocRelationStore(store, data)
           ? html`<div
               style="font-size: 11px; color: var(--affine-text-secondary-color); padding: 0 8px 4px;"
             >
-              Bidirectional relations are not available for cross-page
-              targets.
+              Bidirectional relations are not available for cross-page targets.
             </div>`
           : null}
         ${(
@@ -474,10 +504,7 @@ export class RelationSettings extends SignalWatcher(
           style="height: 1px; background: var(--affine-border-color); margin: 4px 0;"
         ></div>
 
-        ${!(
-          isCrossTeamspaceRelationFlagOn(store) &&
-          isCrossDocRelationStore(store, data)
-        )
+        ${!(crossTeamspaceFlagOn && isCrossDocRelationStore(store, data))
           ? html` <div
               class="dv-hover"
               style="display: flex; align-items: center; padding: 8px; border-radius: 4px; cursor: pointer; color: var(--affine-warning-color);"
@@ -486,13 +513,9 @@ export class RelationSettings extends SignalWatcher(
               <div style="font-size: 14px;">Clean up missing records</div>
             </div>`
           : null}
-
         ${data.isBidirectional &&
         data.reversePropertyId &&
-        !(
-          isCrossTeamspaceRelationFlagOn(store) &&
-          isCrossDocRelationStore(store, data)
-        )
+        !(crossTeamspaceFlagOn && isCrossDocRelationStore(store, data))
           ? html`
               <div
                 class="dv-hover"
@@ -527,7 +550,9 @@ export class RelationCell extends BaseCellRenderer<string[]> {
 
   override updated(_changed: PropertyValues) {
     super.updated(_changed);
-    void this._refreshCrossTeamspaceRemote();
+    void this._refreshCrossTeamspaceRemote().catch(() => {
+      /* best-effort remote labels */
+    });
   }
 
   private async _refreshCrossTeamspaceRemote() {
@@ -602,12 +627,17 @@ export class RelationCell extends BaseCellRenderer<string[]> {
       crossWorkspaceTargetWorkspaceId?: string;
     };
     const targetDatabaseId = propData.targetDatabaseId as string;
-    const crossWorkspaceRelayUx = isCrossWorkspaceRelayColumnUx(store, propData);
+    const crossWorkspaceRelayUx = isCrossWorkspaceRelayColumnUx(
+      store,
+      propData
+    );
     const crossDocUx =
       isCrossTeamspaceRelationFlagOn(store) &&
       isCrossDocRelationStore(store, propData);
     const crossTeamspaceRelayUx =
-      crossDocUx && this._remoteCaps?.canMutateRelation !== true;
+      crossDocUx &&
+      this._remoteCaps != null &&
+      !this._remoteCaps.canMutateRelation;
     const relayUx = crossWorkspaceRelayUx || crossTeamspaceRelayUx;
 
     if (!targetDatabaseId) {
@@ -641,10 +671,7 @@ export class RelationCell extends BaseCellRenderer<string[]> {
           relationIds = filtered;
         }
       }
-    } else if (
-      this._remoteRows !== null &&
-      this._remoteCaps?.canReadRelay
-    ) {
+    } else if (this._remoteRows !== null && this._remoteCaps?.canReadRelay) {
       const validIds = new Set(
         this._remoteRows.filter(r => r.exists).map(r => r.rowId)
       );
@@ -658,49 +685,42 @@ export class RelationCell extends BaseCellRenderer<string[]> {
       }
     }
 
-    const crossDocNoAccess =
-      crossDocUx &&
-      this._remoteCaps &&
-      !this._remoteCaps.canReadRelay &&
-      relationIds.length > 0;
-
     return html`
       <div style="display: flex; gap: 4px; flex-wrap: wrap; padding: 4px 0;">
         ${relayUx
           ? html`<span
               style="font-size: 10px; color: var(--affine-text-secondary-color); width: 100%;"
-              >View only</span
+              >${crossWorkspaceRelayUx
+                ? 'View only'
+                : 'View only — enable experimental cross-teamspace relations (workspace Settings) or ensure access on both pages'}</span
             >`
           : null}
-        ${crossDocNoAccess
-          ? html`<span
-              style="font-size: 12px; color: var(--affine-text-secondary-color); width: 100%;"
-              >Cannot load referenced rows</span
+        ${relationIds.length === 0
+          ? html`<span style="color: var(--affine-placeholder-color);"
+              >Empty</span
             >`
-          : relationIds.length === 0
-            ? html`<span style="color: var(--affine-placeholder-color);"
-                >Empty</span
-              >`
-            : repeat(
-                relationIds,
-                id => id,
-                id => {
-                  const remote = this._remoteRows?.find(r => r.rowId === id);
-                  let label: string;
-                  if (crossDocUx) {
-                    if (this._remoteRows === null) {
-                      label = '…';
-                    } else if (remote) {
-                      label = remote.title;
-                    } else {
-                      label = '…';
-                    }
+          : repeat(
+              relationIds,
+              id => id,
+              id => {
+                const remote = this._remoteRows?.find(r => r.rowId === id);
+                let label: string;
+                if (crossDocUx) {
+                  if (this._remoteCaps && !this._remoteCaps.canReadRelay) {
+                    label = viewOnlyCrossDocRelationChipLabel(id as string);
+                  } else if (this._remoteRows === null) {
+                    label = '…';
+                  } else if (remote) {
+                    label = remote.title;
                   } else {
-                    label = getRowTitle(
-                      (this.view.manager.dataSource as any).doc,
-                      id as string
-                    );
+                    label = '…';
                   }
+                } else {
+                  label = getRowTitle(
+                    (this.view.manager.dataSource as any).doc,
+                    id as string
+                  );
+                }
                 return html`
                   <div
                     style="padding: 2px 6px; background: var(--affine-background-tertiary-color); border-radius: 4px; font-size: 12px; cursor: ${relayUx
@@ -775,16 +795,22 @@ export class RelationCell extends BaseCellRenderer<string[]> {
           this.selectCurrentCell(false);
           return;
         }
-        let pickerStore = store;
-        if (td.length > 0 && td !== store.id) {
-          const doc = store.workspace.getDoc(td);
-          const sub = doc?.getStore({ id: td });
-          if (sub) {
-            pickerStore = sub;
-          }
+        const pickerStore =
+          td.length > 0 && td !== store.id
+            ? await resolveCrossDocPickerStore(
+                store.workspace,
+                td,
+                targetDatabaseId
+              )
+            : store;
+        if (!pickerStore) {
+          this.selectCurrentCell(false);
+          return;
         }
         openPicker(pickerStore);
-      })();
+      })().catch(() => {
+        this.selectCurrentCell(false);
+      });
       return;
     }
 

@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 
 import { Models, WorkspaceRole } from '../../models';
+import { TeamspaceVisibility } from '../../models/teamspace';
+import { AccessController } from '../permission';
+import { Action } from '../permission/types';
 
 export type CrossTeamspaceRelationCapabilities = {
   canReadRelay: boolean;
@@ -8,15 +11,21 @@ export type CrossTeamspaceRelationCapabilities = {
 };
 
 /**
- * Permission matrix for cross-doc / cross-teamspace database relations (same workspace).
+ * Permission matrix for cross-doc / cross-teamspace database relations (one cloud workspace).
  *
- * - canReadRelay: workspace Owner/Admin, or any user who may access the source doc (view chips).
- * - canMutateRelation: workspace Owner/Admin, or member of every teamspace that contains
- *   the source and target docs (when both docs are assigned to teamspaces), and may access both docs.
+ * Source and target pages may live in different teamspaces under the same `workspaceId`.
+ *
+ * - canReadRelay: workspace Owner/Admin; else Doc.Read on source and target, participation in
+ *   both teamspaces (explicit member, or workspace member with Open/Closed visibility), and both
+ *   docs assigned to a teamspace in this workspace (not only one).
+ * - canMutateRelation: workspace Owner/Admin; else same as relay plus Doc.Update on source.
  */
 @Injectable()
 export class CrossTeamspaceRelationPolicy {
-  constructor(private readonly models: Models) {}
+  constructor(
+    private readonly models: Models,
+    private readonly ac: AccessController
+  ) {}
 
   private async workspaceRole(
     workspaceId: string,
@@ -28,6 +37,29 @@ export class CrossTeamspaceRelationPolicy {
 
   private isWorkspaceOwnerOrAdmin(role: WorkspaceRole | null): boolean {
     return role === WorkspaceRole.Owner || role === WorkspaceRole.Admin;
+  }
+
+  /** Open/Closed teamspaces are visible to the whole workspace; private teamspaces require a role row. */
+  private async participatesInTeamspace(
+    teamspaceId: string,
+    workspaceId: string,
+    userId: string
+  ): Promise<boolean> {
+    if (await this.models.teamspaceUser.isMember(teamspaceId, userId)) {
+      return true;
+    }
+    const ts = await this.models.teamspace.get(teamspaceId);
+    if (!ts || ts.workspaceId !== workspaceId) {
+      return false;
+    }
+    if (ts.visibility === TeamspaceVisibility.Private) {
+      return false;
+    }
+    const wsUser = await this.models.workspaceUser.getActive(
+      workspaceId,
+      userId
+    );
+    return wsUser != null;
   }
 
   async evaluate(
@@ -43,41 +75,36 @@ export class CrossTeamspaceRelationPolicy {
       return { canReadRelay: true, canMutateRelation: true };
     }
 
-    const canAccessSource = await this.models.teamspaceDoc.canUserAccessDoc(
-      userId,
+    const [docReadSource, docReadTarget, docUpdateSource] = await Promise.all([
+      this.ac.user(userId).doc(workspaceId, sourceDocId).can(Action.Doc.Read),
+      this.ac.user(userId).doc(workspaceId, targetDocId).can(Action.Doc.Read),
+      this.ac.user(userId).doc(workspaceId, sourceDocId).can(Action.Doc.Update),
+    ]);
+
+    const sourceTs = await this.models.teamspaceDoc.findByDocForWorkspace(
       sourceDocId,
-      false
+      workspaceId
     );
-    const canAccessTarget = await this.models.teamspaceDoc.canUserAccessDoc(
-      userId,
+    const targetTs = await this.models.teamspaceDoc.findByDocForWorkspace(
       targetDocId,
-      false
+      workspaceId
     );
-
-    const canReadRelay = canAccessSource;
-
-    if (!canAccessSource || !canAccessTarget) {
-      return { canReadRelay, canMutateRelation: false };
-    }
-
-    const sourceTs = await this.models.teamspaceDoc.findByDoc(sourceDocId);
-    const targetTs = await this.models.teamspaceDoc.findByDoc(targetDocId);
 
     if (!sourceTs || !targetTs) {
-      // Unassigned docs are only reachable by WS Owner/Admin (handled above).
-      return { canReadRelay, canMutateRelation: false };
+      return { canReadRelay: false, canMutateRelation: false };
     }
 
-    const memberSource = await this.models.teamspaceUser.isMember(
-      sourceTs.teamspaceId,
-      userId
-    );
-    const memberTarget = await this.models.teamspaceUser.isMember(
-      targetTs.teamspaceId,
-      userId
-    );
+    const [participatesSource, participatesTarget] = await Promise.all([
+      this.participatesInTeamspace(sourceTs.teamspaceId, workspaceId, userId),
+      this.participatesInTeamspace(targetTs.teamspaceId, workspaceId, userId),
+    ]);
 
-    const canMutateRelation = memberSource && memberTarget;
+    const inBothTeamspaces = participatesSource && participatesTarget;
+    const canReadDocs = docReadSource && docReadTarget;
+
+    const canReadRelay = inBothTeamspaces && canReadDocs;
+    const canMutateRelation =
+      inBothTeamspaces && canReadDocs && docUpdateSource;
 
     return { canReadRelay, canMutateRelation };
   }

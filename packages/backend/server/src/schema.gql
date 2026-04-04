@@ -717,7 +717,7 @@ type CopilotWorkspaceIgnoredDocTypeEdge {
 }
 
 input CreateChatMessageInput {
-  attachments: [String!]
+  attachments: [String!] @deprecated(reason: "use blobs")
   blob: Upload
   blobs: [Upload!]
   content: String
@@ -740,7 +740,7 @@ input CreateChatSessionInput {
 input CreateCheckoutSessionInput {
   args: JSONObject
   coupon: String
-  idempotencyKey: String
+  idempotencyKey: String @deprecated(reason: "not required anymore")
   plan: SubscriptionPlan = Pro
   recurring: SubscriptionRecurring = Yearly
   successCallbackLink: String!
@@ -779,14 +779,18 @@ type CredentialsRequirementType {
   password: PasswordLimitsType!
 }
 
-"""Cross-teamspace relation permission capabilities"""
+"""
+Cross-teamspace relation permissions (one cloud workspace; source and target pages may sit in different teamspaces)
+"""
 type CrossTeamspaceRelationCapabilitiesType {
   """
-  User may edit relation column config and cell values (both teamspaces for non-admin)
+  May edit relation column config and cell values on the source doc. Workspace Owner/Admin: always. Others: same gates as canReadRelay plus Doc.Update on the source page.
   """
   canMutateRelation: Boolean!
 
-  """User may call relation row resolve (read chip labels)"""
+  """
+  May call crossTeamspaceRelationRows to load target row labels from snapshots. Workspace Owner/Admin: always. Others: Doc.Read on both pages, member of both teamspaces (for pages assigned in this workspace), and both pages assigned to a teamspace here.
+  """
   canReadRelay: Boolean!
 }
 

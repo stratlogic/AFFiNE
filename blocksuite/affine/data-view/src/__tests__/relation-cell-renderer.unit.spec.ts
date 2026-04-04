@@ -11,6 +11,7 @@ import {
   isCrossDocRelationStore,
   isCrossTeamspaceRelationFlagOn,
   isCrossWorkspaceRelayColumnUx,
+  viewOnlyCrossDocRelationChipLabel,
 } from '../property-presets/relation/cell-renderer.js';
 
 function storeWithCrossWorkspaceFlag(enabled: boolean): Store {
@@ -254,5 +255,15 @@ describe('relation cell renderer edge cases', () => {
       'b',
       'c',
     ]);
+  });
+
+  it('viewOnlyCrossDocRelationChipLabel uses short id verbatim', () => {
+    expect(viewOnlyCrossDocRelationChipLabel('shortid')).toBe('shortid');
+  });
+
+  it('viewOnlyCrossDocRelationChipLabel abbreviates long ids', () => {
+    expect(viewOnlyCrossDocRelationChipLabel('verylongrowidentifier')).toMatch(
+      /^Linked record \(verylong…\)$/
+    );
   });
 });

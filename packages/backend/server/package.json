@@ -35,6 +35,7 @@
     "@ai-sdk/openai-compatible": "^1.0.28",
     "@ai-sdk/perplexity": "^2.0.21",
     "@apollo/server": "^4.13.0",
+    "@as-integrations/express5": "^1.1.2",
     "@fal-ai/serverless-client": "^0.15.0",
     "@google-cloud/opentelemetry-cloud-trace-exporter": "^3.0.0",
     "@google-cloud/opentelemetry-resource-util": "^3.0.0",
@@ -154,7 +155,7 @@
     "why-is-node-running": "^3.2.2"
   },
   "nodemonConfig": {
-    "exec": "node",
+    "exec": "node --import=../../../tools/cli/register.js",
     "ignore": [
       "**/__tests__/**",
       "**/dist/**",

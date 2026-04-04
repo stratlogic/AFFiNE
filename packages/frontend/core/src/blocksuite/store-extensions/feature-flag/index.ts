@@ -26,6 +26,6 @@ export class FeatureFlagStoreExtension extends StoreExtensionProvider {
       return;
     }
     context.register(getFeatureFlagSyncer(featureFlagService));
-    context.register(getCrossTeamspaceServerFlagSyncer());
+    context.register(getCrossTeamspaceServerFlagSyncer(featureFlagService));
   }
 }
